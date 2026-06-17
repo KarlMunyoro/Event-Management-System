@@ -1,19 +1,17 @@
-import { useEffect, useState } from 'react'
+import { Routes, Route, Navigate } from 'react-router-dom'
+import RegisterPage from './pages/RegisterPage'
+import LoginPage from './pages/LoginPage'
+import EventsFeedPage from './pages/EventsFeedPage'
+
 
 function App() {
-  const [message, setMessage] = useState('Loading...')
-
-  useEffect(() => {
-    fetch('http://localhost:5000/api/test')
-      .then(res => res.json())
-      .then(data => setMessage(data.message))
-      .catch(() => setMessage('❌ Could not connect to backend'))
-  }, [])
-
   return (
-    <div className="p-10">
-      <h1 className="text-3xl font-bold text-blue-500">{message}</h1>
-    </div>
+    <Routes>
+      <Route path="/" element={<Navigate to="/login" />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
+      <Route path="/events" element={<EventsFeedPage />} />
+    </Routes>
   )
 }
 
