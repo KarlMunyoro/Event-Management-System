@@ -1,15 +1,44 @@
 import { useState } from "react"
-import { useNavigate, Link } from "react-router-dom"
+import { useNavigate, Link, useLocation } from "react-router-dom"
 import api from "../services/api"
 
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const params = new URLSearchParams(location.search)
+  const showVerifiedBanner = params.get("verified") === "1"
+  const showVerifyErrorBanner = params.get("verified") === "0"
   const [form, setForm] = useState({ email: "", password: "" })
   const [error, setError] = useState("")
+  const [resendMessage, setResendMessage] = useState("")
+  const [resendLink, setResendLink] = useState("")
   const [loading, setLoading] = useState(false)
+  const [resending, setResending] = useState(false)
+
+  const shouldShowResend =
+    !!form.email &&
+    (showVerifyErrorBanner || error.toLowerCase().includes("verify your email"))
 
   function handleChange(e) {
+    if (resendMessage) setResendMessage("")
+    if (resendLink) setResendLink("")
     setForm({ ...form, [e.target.name]: e.target.value })
+  }
+
+  async function handleResendVerification() {
+    setResendMessage("")
+    setResending(true)
+
+    try {
+      const res = await api.post("/auth/resend-verification", { email: form.email })
+      setResendMessage(res.data?.message || "Verification email sent. Please check your inbox.")
+      setResendLink(res.data?.verificationLink || "")
+    } catch (err) {
+      setResendMessage(err.response?.data?.message || "Could not send verification email")
+      setResendLink(err.response?.data?.verificationLink || "")
+    } finally {
+      setResending(false)
+    }
   }
 
   async function handleSubmit(e) {
@@ -23,9 +52,10 @@ export default function LoginPage() {
         password: form.password,
       })
 
-      const { token, role } = res.data
+      const { token, role, fullName } = res.data
       localStorage.setItem("token", token)
       localStorage.setItem("role", role)
+      localStorage.setItem("fullName", fullName)
 
       if (role === "Admin") navigate("/admin/dashboard")
       else if (role === "Organizer") navigate("/organizer/dashboard")
@@ -43,9 +73,34 @@ export default function LoginPage() {
         <h1 style={{ fontSize: "20px", fontWeight: "600", marginBottom: "4px" }}>Sign in</h1>
         <p style={{ fontSize: "13px", color: "#777", marginBottom: "24px" }}>Welcome back to CampusEvents</p>
 
+        {showVerifiedBanner && (
+          <div style={{ background: "#EAF7EE", border: "1px solid #BFE4C8", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#1A5E2E", marginBottom: "16px" }}>
+            Email verified successfully. You can now sign in.
+          </div>
+        )}
+
+        {showVerifyErrorBanner && (
+          <div style={{ background: "#FCEBEB", border: "1px solid #F7C1C1", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#791F1F", marginBottom: "16px" }}>
+            Verification link is invalid or expired. Please register again or request a new link.
+          </div>
+        )}
+
         {error && (
           <div style={{ background: "#FCEBEB", border: "1px solid #F7C1C1", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#791F1F", marginBottom: "16px" }}>
             {error}
+          </div>
+        )}
+
+        {resendMessage && (
+          <div style={{ background: "#F2F4F7", border: "1px solid #DEE3EA", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#4B5563", marginBottom: "16px" }}>
+            {resendMessage}
+            {resendLink && (
+              <div style={{ marginTop: "8px" }}>
+                <a href={resendLink} target="_blank" rel="noreferrer" style={{ color: "#111", fontWeight: "600" }}>
+                  Open verification link
+                </a>
+              </div>
+            )}
           </div>
         )}
 
@@ -80,6 +135,28 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </form>
+
+        {shouldShowResend && (
+          <button
+            type="button"
+            onClick={handleResendVerification}
+            disabled={resending}
+            style={{
+              width: "100%",
+              marginTop: "10px",
+              background: "#fff",
+              color: "#111",
+              border: "1px solid #d6d6d6",
+              borderRadius: "8px",
+              padding: "10px",
+              fontSize: "13px",
+              fontWeight: "500",
+              cursor: "pointer",
+            }}
+          >
+            {resending ? "Sending verification link..." : "Resend verification email"}
+          </button>
+        )}
 
         <p style={{ textAlign: "center", fontSize: "13px", color: "#777", marginTop: "16px" }}>
           No account yet?{" "}

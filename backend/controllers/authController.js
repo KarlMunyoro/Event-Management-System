@@ -9,10 +9,139 @@ function assignRole(email) {
   return 'Student'
 }
 
+function isAllowedRegistrationEmail(email) {
+  const normalized = email.trim().toLowerCase()
+  const senderEmail = (process.env.EMAIL_USER || '').trim().toLowerCase()
+  const allowSenderEmailRegistration = process.env.ALLOW_SENDER_EMAIL_REGISTRATION === 'true'
+
+  if (normalized.endsWith('@strathmore.edu')) return true
+
+  // Local testing fallback: allow configured sender account only when explicitly enabled.
+  if (allowSenderEmailRegistration && senderEmail && normalized === senderEmail) return true
+
+  return false
+}
+
+function shouldExposeDevVerificationLink() {
+  return process.env.ALLOW_DEV_VERIFICATION_LINK === 'true' && process.env.NODE_ENV !== 'production'
+}
+
+function buildVerifyUrl(userID) {
+  const verifyToken = jwt.sign(
+    { userID },
+    process.env.JWT_SECRET,
+    { expiresIn: '24h' }
+  )
+
+  const apiBaseUrl = process.env.API_BASE_URL || 'http://localhost:5000/api'
+  return `${apiBaseUrl}/auth/verify/${verifyToken}`
+}
+
+async function sendVerificationEmail({ email, fullName, userID }) {
+  const verifyUrl = buildVerifyUrl(userID)
+
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || process.env.EMAIL_PASS === 'your_gmail_app_password') {
+    const err = new Error('Email credentials are not configured. Set EMAIL_USER and EMAIL_PASS (Gmail App Password).')
+    err.code = 'EMAIL_CONFIG_MISSING'
+    throw err
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+  })
+
+  await transporter.sendMail({
+    from: process.env.EMAIL_USER,
+    to: email,
+    subject: 'Verify your CampusEvents account',
+    html: `<p>Hi ${fullName},</p>
+           <p>Click the link below to verify your account:</p>
+           <p><a href="${verifyUrl}">Verify email</a></p>
+           <p>If the button does not work, copy and paste this URL into your browser:</p>
+           <p>${verifyUrl}</p>`,
+    text: `Hi ${fullName},\n\nVerify your account using this link:\n${verifyUrl}\n\nIf you did not create this account, you can ignore this email.`,
+  })
+}
+
+async function resolveRoleID(roleName) {
+  const [rows] = await db.query(
+    'SELECT roleID FROM roles WHERE roleName = ? LIMIT 1',
+    [roleName]
+  )
+
+  if (rows.length === 0) {
+    throw new Error(`Role not found in roles table: ${roleName}`)
+  }
+
+  return rows[0].roleID
+}
+
+async function saveNormalizedUserRole(userID, roleID) {
+  try {
+    await db.query(
+      'INSERT INTO user_roles (userID, roleID) VALUES (?, ?)',
+      [userID, roleID]
+    )
+  } catch (err) {
+    // Keep registration successful even if role-mapping tables differ.
+    if (err?.code !== 'ER_DUP_ENTRY' && err?.code !== 'ER_NO_SUCH_TABLE') {
+      console.warn('⚠️ Role mapping skipped:', err.message)
+    }
+  }
+}
+
+async function getUserWithRoleByEmail(email) {
+  try {
+    const [rows] = await db.query(
+      `SELECT u.*, r.roleName AS role
+       FROM users u
+       LEFT JOIN roles r ON r.roleID = u.roleID
+       WHERE u.email = ?
+       LIMIT 1`,
+      [email]
+    )
+    return rows[0] || null
+  } catch (err) {
+    // Backward-compatible fallback for denormalized or different schemas.
+    if (err?.code === 'ER_NO_SUCH_TABLE' || err?.code === 'ER_BAD_FIELD_ERROR') {
+      try {
+        const [rows] = await db.query(
+          `SELECT u.*, r.roleName AS role
+           FROM users u
+           LEFT JOIN user_roles ur ON ur.userID = u.userID
+           LEFT JOIN roles r ON r.roleID = ur.roleID
+           WHERE u.email = ?
+           LIMIT 1`,
+          [email]
+        )
+        if (rows.length > 0) return rows[0]
+      } catch (innerErr) {
+        if (innerErr?.code !== 'ER_NO_SUCH_TABLE' && innerErr?.code !== 'ER_BAD_FIELD_ERROR') {
+          throw innerErr
+        }
+      }
+
+      const [rows] = await db.query('SELECT * FROM users WHERE email = ? LIMIT 1', [email])
+      return rows[0] || null
+    }
+    throw err
+  }
+}
+
 export const register = async (req, res) => {
   const { fullName, email, password } = req.body
 
   try {
+    if (!isAllowedRegistrationEmail(email)) {
+      return res.status(400).json({
+        message: 'Use a Strathmore email to register.',
+      })
+    }
+
     const [existing] = await db.query('SELECT userID FROM users WHERE email = ?', [email])
     if (existing.length > 0) {
       return res.status(400).json({ message: 'Email already registered' })
@@ -20,52 +149,50 @@ export const register = async (req, res) => {
 
     const passwordHash = await bcrypt.hash(password, 12)
     const role = assignRole(email)
+    const roleID = await resolveRoleID(role)
 
     const [result] = await db.query(
-      'INSERT INTO users (fullName, email, passwordHash, role) VALUES (?, ?, ?, ?)',
-      [fullName, email, passwordHash, role]
+      'INSERT INTO users (fullName, email, passwordHash, roleID) VALUES (?, ?, ?, ?)',
+      [fullName, email, passwordHash, roleID]
     )
 
-    const token = jwt.sign(
-      { userID: result.insertId, role },
-      process.env.JWT_SECRET,
-      { expiresIn: '7d' }
-    )
+    await saveNormalizedUserRole(result.insertId, roleID)
 
-    const verifyToken = jwt.sign(
-      { userID: result.insertId },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    )
+    const verifyUrl = buildVerifyUrl(result.insertId)
 
-    // try to send email but do not crash if it fails
+    // Strict flow: registration should only succeed when verification email is sent.
     try {
-      const transporter = nodemailer.createTransport({
-        service: 'gmail',
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
+      await sendVerificationEmail({
+        email,
+        fullName,
+        userID: result.insertId,
       })
 
-      await transporter.sendMail({
-        from: process.env.EMAIL_USER,
-        to: email,
-        subject: 'Verify your CampusEvents account',
-        html: `<p>Hi ${fullName},</p>
-               <p>Click the link below to verify your account:</p>
-               <a href="${process.env.CLIENT_URL}/verify-email/${verifyToken}">Verify email</a>`,
+      return res.status(201).json({
+        message: 'Account created. Verification link sent to your email.',
+        fullName,
+        emailSent: true,
       })
     } catch (emailErr) {
       console.warn('⚠️ Email sending failed:', emailErr.message)
-    }
 
-    res.status(201).json({
-      message: 'Account created successfully',
-      token,
-      role,
-      fullName,
-    })
+      try {
+        await db.query('DELETE FROM users WHERE userID = ?', [result.insertId])
+      } catch (rollbackErr) {
+        console.error('Failed to rollback user after email failure:', rollbackErr)
+      }
+
+      const payload = {
+        message: 'Registration failed because verification email could not be sent. Please check email configuration and try again.',
+        emailSent: false,
+      }
+
+      if (shouldExposeDevVerificationLink()) {
+        payload.verificationLink = verifyUrl
+      }
+
+      return res.status(502).json(payload)
+    }
   } catch (err) {
     console.error('Registration error:', err)
     res.status(500).json({ message: 'Server error' })
@@ -76,12 +203,16 @@ export const login = async (req, res) => {
   const { email, password } = req.body
 
   try {
-    const [rows] = await db.query('SELECT * FROM users WHERE email = ?', [email])
-    if (rows.length === 0) {
+    const user = await getUserWithRoleByEmail(email)
+    if (!user) {
       return res.status(401).json({ message: 'Invalid email or password' })
     }
 
-    const user = rows[0]
+    const userRole = user.role || assignRole(user.email)
+
+    if (!user.emailVerifiedAt) {
+      return res.status(403).json({ message: 'Please verify your email before signing in' })
+    }
 
     if (user.status === 'Disabled') {
       return res.status(403).json({ message: 'Your account has been disabled' })
@@ -93,12 +224,12 @@ export const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { userID: user.userID, role: user.role },
+      { userID: user.userID, role: userRole },
       process.env.JWT_SECRET,
       { expiresIn: '7d' }
     )
 
-    res.json({ token, role: user.role, fullName: user.fullName })
+    res.json({ token, role: userRole, fullName: user.fullName })
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: 'Server error' })
@@ -107,6 +238,7 @@ export const login = async (req, res) => {
 
 export const verifyEmail = async (req, res) => {
   const { token } = req.params
+  const clientUrl = process.env.CLIENT_URL || 'http://localhost:5173'
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET)
@@ -114,8 +246,51 @@ export const verifyEmail = async (req, res) => {
       'UPDATE users SET emailVerifiedAt = NOW() WHERE userID = ?',
       [decoded.userID]
     )
-    res.json({ message: 'Email verified successfully' })
+    res.redirect(`${clientUrl}/email-verification?status=success`)
   } catch (err) {
-    res.status(400).json({ message: 'Invalid or expired verification link' })
+    res.redirect(`${clientUrl}/email-verification?status=error`)
+  }
+}
+
+export const resendVerification = async (req, res) => {
+  const { email } = req.body
+
+  if (!email) {
+    return res.status(400).json({ message: 'Email is required' })
+  }
+
+  try {
+    const user = await getUserWithRoleByEmail(email)
+    if (!user) {
+      return res.json({ message: 'If an account exists, a verification email has been sent.' })
+    }
+
+    if (Object.prototype.hasOwnProperty.call(user, 'emailVerifiedAt') && user.emailVerifiedAt) {
+      return res.json({ message: 'Your email is already verified. You can sign in.' })
+    }
+
+    const verifyUrl = buildVerifyUrl(user.userID)
+
+    try {
+      await sendVerificationEmail({
+        email: user.email,
+        fullName: user.fullName,
+        userID: user.userID,
+      })
+      return res.json({ message: 'Verification email sent. Please check your inbox.', emailSent: true })
+    } catch (emailErr) {
+      console.warn('⚠️ Resend email failed:', emailErr.message)
+      const payload = {
+        message: 'Could not send verification email. Check email settings and try again.',
+        emailSent: false,
+      }
+      if (shouldExposeDevVerificationLink()) {
+        payload.verificationLink = verifyUrl
+      }
+      return res.status(200).json(payload)
+    }
+  } catch (err) {
+    console.error('Resend verification error:', err)
+    res.status(500).json({ message: 'Server error' })
   }
 }

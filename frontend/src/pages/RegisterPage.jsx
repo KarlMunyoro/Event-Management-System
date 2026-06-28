@@ -11,6 +11,8 @@ export default function RegisterPage() {
     confirmPassword: "",
   })
   const [error, setError] = useState("")
+  const [success, setSuccess] = useState("")
+  const [verificationLink, setVerificationLink] = useState("")
   const [loading, setLoading] = useState(false)
 
   function handleChange(e) {
@@ -20,6 +22,8 @@ export default function RegisterPage() {
   async function handleSubmit(e) {
     e.preventDefault()
     setError("")
+    setSuccess("")
+    setVerificationLink("")
 
     if (form.password !== form.confirmPassword) {
       setError("Passwords do not match")
@@ -34,11 +38,18 @@ export default function RegisterPage() {
         password: form.password,
       })
 
-      localStorage.setItem("token", res.data.token)
-      localStorage.setItem("role", res.data.role)
-      localStorage.setItem("fullName", form.fullName)
+      setSuccess(res.data?.message || "Account created. Check your email for a verification link, then sign in.")
+      setVerificationLink(res.data?.verificationLink || "")
+      setForm({
+        fullName: "",
+        email: "",
+        password: "",
+        confirmPassword: "",
+      })
 
-      navigate("/events")
+      setTimeout(() => {
+        navigate("/login")
+      }, 1200)
     } catch (err) {
       setError(err.response?.data?.message || "Registration failed")
     } finally {
@@ -55,6 +66,19 @@ export default function RegisterPage() {
         {error && (
           <div style={{ background: "#FCEBEB", border: "1px solid #F7C1C1", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#791F1F", marginBottom: "16px" }}>
             {error}
+          </div>
+        )}
+
+        {success && (
+          <div style={{ background: "#EAF7EE", border: "1px solid #BFE4C8", borderRadius: "8px", padding: "10px 14px", fontSize: "13px", color: "#1A5E2E", marginBottom: "16px" }}>
+            {success}
+            {verificationLink && (
+              <div style={{ marginTop: "8px" }}>
+                <a href={verificationLink} target="_blank" rel="noreferrer" style={{ color: "#1A5E2E", fontWeight: "600" }}>
+                  Open verification link
+                </a>
+              </div>
+            )}
           </div>
         )}
 
