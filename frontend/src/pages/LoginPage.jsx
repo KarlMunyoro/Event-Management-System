@@ -56,6 +56,7 @@ export default function LoginPage() {
       localStorage.setItem("token", token)
       localStorage.setItem("role", role)
       localStorage.setItem("fullName", fullName)
+      localStorage.setItem('userID', res.data.userID)
 
       if (role === "Admin") navigate("/admin/dashboard")
       else if (role === "Organizer") navigate("/organizer/dashboard")
