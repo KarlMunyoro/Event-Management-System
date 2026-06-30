@@ -229,7 +229,7 @@ export const login = async (req, res) => {
       { expiresIn: '7d' }
     )
 
-    res.json({ token, role: userRole, fullName: user.fullName })
+    res.json({ token, role: userRole, fullName: user.fullName, userID: user.userID })
   } catch (err) {
     console.error(err)
     res.status(500).json({ message: 'Server error' })

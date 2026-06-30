@@ -17,6 +17,18 @@ export default function EventDetailPage() {
   const role = localStorage.getItem('role')
   const token = localStorage.getItem('token')
 
+  function getUserIDFromToken(token) {
+    if (!token) return null
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.userID ?? payload.id ?? payload.sub ?? null
+    } catch {
+      return null
+    }
+  }
+
+const userID = getUserIDFromToken(token)
+
   const categoryColors = {
     Academic: { bg: '#EAF3DE', color: '#27500A' },
     Social: { bg: '#FAEEDA', color: '#633806' },
@@ -163,6 +175,7 @@ export default function EventDetailPage() {
           </button>
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: '24px', fontWeight: '700', color: '#ffffff', flex: 1 }}>{event.title}</h1>
+            
             <span style={{
               fontSize: '12px', fontWeight: '600', padding: '4px 12px',
               borderRadius: '20px', background: catColor.bg, color: catColor.color,
@@ -171,6 +184,24 @@ export default function EventDetailPage() {
               {event.categoryName}
             </span>
           </div>
+          {(role === 'Admin' || (role === 'Organizer' && String(event.organizerID) === String(userID))) && (
+            <button
+              onClick={() => navigate(`/organizer/events/${event.eventID}/edit`)}
+              style={{
+                marginTop: '10px',
+                background: 'none',
+                border: '1.5px solid #F5A623',
+                color: '#F5A623',
+                borderRadius: '8px',
+                padding: '6px 14px',
+                fontSize: '12px',
+                fontWeight: '600',
+                cursor: 'pointer',
+              }}
+            >
+              Edit event
+            </button>
+)}
         </div>
       </div>
 
