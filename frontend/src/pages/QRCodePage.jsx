@@ -167,7 +167,7 @@ export default function QRCodePage() {
             {/* QR Code */}
             <div style={{ display: 'inline-block', padding: '18px', background: '#F8F9FB', borderRadius: '14px', marginBottom: '20px' }}>
               <QRCodeSVG
-                value={data.token}
+                value={`${window.location.origin}/checkin?token=${data.token}`}
                 size={180}
                 bgColor="#F8F9FB"
                 fgColor="#1E3A5F"

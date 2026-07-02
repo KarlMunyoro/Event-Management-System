@@ -10,6 +10,8 @@ import QRCodePage from './pages/QRCodePage'
 import FeedbackPage from './pages/FeedbackPage'
 import OrganizerDashboardPage from './pages/OrganizerDashboardPage'
 import CreateEventPage from './pages/CreateEventPage'
+import CheckInPage from './pages/CheckInPage'
+import OrganizerScanPage from './pages/OrganizerScanPage'
 
 function App() {
   return (
@@ -26,6 +28,8 @@ function App() {
       <Route path="/feedback/:eventID" element={<FeedbackPage />} />
       <Route path="/organizer/dashboard" element={<OrganizerDashboardPage />} />
       <Route path="/organizer/create" element={<CreateEventPage />} />
+      <Route path="/checkin" element={<CheckInPage />} />
+      <Route path="/organizer/scanner" element={<OrganizerScanPage />} />
     </Routes>
   )
 }
