@@ -80,6 +80,47 @@ router.get('/:id', async (req, res) => {
     console.error(err)
     res.status(500).json({ message: 'Server error' })
   }
+}
+)
+// UPDATE an event
+router.put('/:id', requireAuth, requireRole('Organizer', 'Admin'), async (req, res) => {
+  const { title, description, eventDate, startTime, endTime, location, categoryID } = req.body
+  const eventID = req.params.id
+
+  if (!title || !eventDate || !startTime || !endTime || !location || !categoryID) {
+    return res.status(400).json({ message: 'All fields are required' })
+  }
+
+  try {
+    const [existingEvents] = await db.query('SELECT organizerID FROM events WHERE eventID = ?', [eventID])
+    if (existingEvents.length === 0) {
+      return res.status(404).json({ message: 'Event not found' })
+    }
+
+    const isOwner = existingEvents[0].organizerID === req.user.userID
+    if (!isOwner && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: 'You do not have permission to edit this event' })
+    }
+
+    let [venues] = await db.query('SELECT venueID FROM venues WHERE venueName = ?', [location.trim()])
+    let venueID
+    if (venues.length > 0) {
+      venueID = venues[0].venueID
+    } else {
+      const [result] = await db.query('INSERT INTO venues (venueName) VALUES (?)', [location.trim()])
+      venueID = result.insertId
+    }
+
+    await db.query(
+      'UPDATE events SET title = ?, description = ?, eventDate = ?, startTime = ?, endTime = ?, venueID = ?, categoryID = ? WHERE eventID = ?',
+      [title.trim(), description?.trim() || '', eventDate, startTime, endTime, venueID, categoryID, eventID]
+    )
+
+    res.json({ message: 'Event updated successfully' })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ message: 'Server error' })
+  }
 })
 
 export default router

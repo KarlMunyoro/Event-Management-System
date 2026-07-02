@@ -10,6 +10,7 @@ import QRCodePage from './pages/QRCodePage'
 import FeedbackPage from './pages/FeedbackPage'
 import OrganizerDashboardPage from './pages/OrganizerDashboardPage'
 import CreateEventPage from './pages/CreateEventPage'
+import EditEventPage from './pages/EditEventsPage'
 import CheckInPage from './pages/CheckInPage'
 import OrganizerScanPage from './pages/OrganizerScanPage'
 
@@ -23,6 +24,7 @@ function App() {
       <Route path="/email-verification" element={<EmailVerificationStatusPage />} />
       <Route path="/events" element={<EventsFeedPage />} />
       <Route path="/events/:id" element={<EventDetailPage />} />
+      <Route path="/organizer/events/:id/edit" element={<EditEventPage />} />
       <Route path="/my-rsvps" element={<MyRSVPsPage />} />
       <Route path="/qr/:attendanceID" element={<QRCodePage />} />
       <Route path="/feedback/:eventID" element={<FeedbackPage />} />
