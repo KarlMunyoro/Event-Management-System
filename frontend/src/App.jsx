@@ -14,7 +14,6 @@ import EditEventPage from './pages/EditEventsPage'
 import CheckInPage from './pages/CheckInPage'
 import OrganizerScanPage from './pages/OrganizerScanPage'
 import OrganizerEventsPage from './pages/OrganizerEventsPage'
-import ScannerPage from './pages/ScannerPage'
 import AttendancePage from './pages/AttendancePage'
 import ProfilePage from './pages/ProfilePage'
 import AdminDashboardPage from './pages/AdminDashboardPage'
@@ -41,7 +40,6 @@ function App() {
       <Route path="/checkin" element={<CheckInPage />} />
       <Route path="/organizer/scanner" element={<OrganizerScanPage />} />
       <Route path="/organizer/events" element={<OrganizerEventsPage />} />
-      <Route path="/organizer/scanner" element={<ScannerPage />} />
       <Route path="/organizer/events/:id/attendance" element={<AttendancePage />} />
       <Route path="/profile" element={<ProfilePage />} />
       <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
