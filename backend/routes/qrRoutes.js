@@ -49,7 +49,7 @@ router.get('/verify', async (req, res) => {
     const alreadyCheckedIn = record.hasCheckedIn
 
     if (!alreadyCheckedIn) {
-      await db.query('UPDATE attendance SET hasCheckedIn = 1 WHERE attendanceID = ?', [record.attendanceID])
+      await db.query('UPDATE attendance SET hasCheckedIn = 1, checkedInAt = NOW() WHERE attendanceID = ?', [record.attendanceID])
       await db.query('UPDATE qr_codes SET scannedAt = NOW() WHERE token = ?', [token])
     }
 
@@ -66,6 +66,64 @@ router.get('/verify', async (req, res) => {
     res.status(500).json({ message: 'Server error' })
   }
 })
+
+// REPLACE your existing GET /api/qr/verify route in qrRoutes.js with this.
+// Now accepts EITHER ?token=XXX (camera scan) OR ?code=123456 (manual fallback entry).
+
+router.get('/verify', async (req, res) => {
+  const { token, code } = req.query
+  if (!token && !code) {
+    return res.status(400).json({ message: 'Token or code is required' })
+  }
+
+  try {
+    // Look up by token (from QR scan) or fallbackCode (from manual entry)
+    const [rows] = await db.query(`
+      SELECT
+        q.token,
+        a.attendanceID,
+        a.hasCheckedIn,
+        u.fullName,
+        e.title AS eventTitle,
+        e.eventDate,
+        v.venueName AS location
+      FROM qr_codes q
+      JOIN attendance a ON q.attendanceID = a.attendanceID
+      JOIN users u ON a.userID = u.userID
+      JOIN events e ON a.eventID = e.eventID
+      JOIN venues v ON e.venueID = v.venueID
+      WHERE q.token = ? OR q.fallbackCode = ?
+    `, [token || null, code || null])
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'Invalid QR code or backup code' })
+    }
+
+    const record = rows[0]
+    const alreadyCheckedIn = record.hasCheckedIn
+
+    if (!alreadyCheckedIn) {
+      await db.query(
+        'UPDATE attendance SET hasCheckedIn = 1, checkedInAt = NOW() WHERE attendanceID = ?',
+        [record.attendanceID]
+      )
+      await db.query('UPDATE qr_codes SET scannedAt = NOW() WHERE token = ?', [record.token])
+    }
+
+    res.json({
+      valid: true,
+      alreadyCheckedIn,
+      fullName: record.fullName,
+      eventTitle: record.eventTitle,
+      eventDate: record.eventDate,
+      location: record.location,
+    })
+  } catch (err) {
+    console.error('QR verify error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 
 // GET /api/qr/:attendanceID — get QR code data for a specific attendance record
 router.get('/:attendanceID', authMiddleware, async (req, res) => {

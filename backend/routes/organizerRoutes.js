@@ -1,32 +1,30 @@
 import express from 'express'
 import db from '../config/db.js'
-import jwt from 'jsonwebtoken'
+import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const router = express.Router()
 
-function authMiddleware(req, res, next) {
-  const authHeader = req.headers.authorization
-  if (!authHeader) return res.status(401).json({ message: 'No token provided' })
 
-  const token = authHeader.split(' ')[1]
+router.get('/events', requireAuth, requireRole('Organizer'), async (req, res) => {
+  const organizerID = req.user.userID
+
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET)
-    req.user = decoded
-    next()
+    const [events] = await db.query(
+      `SELECT e.*, v.venueName AS location
+       FROM events e
+       JOIN venues v ON e.venueID = v.venueID
+       WHERE e.organizerID = ?`,
+      [organizerID]
+    )
+    res.json(events)
   } catch (err) {
-    return res.status(401).json({ message: 'Invalid token' })
+    console.error('Organizer events error:', err)
+    res.status(500).json({ message: 'Server error' })  
   }
-}
-
-function organizerOnly(req, res, next) {
-  if (req.user.role !== 'Organizer') {
-    return res.status(403).json({ message: 'Organizer access required' })
-  }
-  next()
-}
+})
 
 // GET /api/organizer/dashboard
-router.get('/dashboard', authMiddleware, organizerOnly, async (req, res) => {
+router.get('/dashboard', requireAuth, requireRole('Organizer'), async (req, res) => {
   const organizerID = req.user.userID
 
   try {
@@ -90,6 +88,77 @@ router.get('/dashboard', authMiddleware, organizerOnly, async (req, res) => {
     console.error('Organizer dashboard error:', err)
     res.status(500).json({ message: 'Server error' })
   }
+  // Add to organizerRoutes.js
+// GET /api/organizer/events/:id/attendance
+// Returns RSVP count, check-in count, and all feedback for one event (organizer's own).
+router.get('/events/:id/attendance', requireAuth, requireRole('Organizer'), async (req, res) => {
+  const organizerID = req.user.userID
+  const { id } = req.params
+
+  try {
+    // Verify the event belongs to this organizer
+    const [event] = await db.query(
+      `SELECT e.eventID, e.title, e.eventDate, e.status, v.venueName AS location
+       FROM events e
+       JOIN venues v ON e.venueID = v.venueID
+       WHERE e.eventID = ? AND e.organizerID = ?`,
+      [id, organizerID]
+    )
+
+    if (event.length === 0) {
+      return res.status(404).json({ message: 'Event not found' })
+    }
+
+    // RSVP + check-in totals
+    const [totals] = await db.query(
+      `SELECT
+         COUNT(*) AS totalRSVPs,
+         COALESCE(SUM(hasCheckedIn), 0) AS totalCheckedIn
+       FROM attendance
+       WHERE eventID = ?`,
+      [id]
+    )
+
+    // All feedback for this event, with the student's name
+    const [feedback] = await db.query(
+      `SELECT
+         f.feedbackID,
+         f.starRating,
+         f.comment,
+         f.submittedAt,
+         u.fullName
+       FROM feedback f
+       JOIN attendance a ON f.attendanceID = a.attendanceID
+       JOIN users u ON a.userID = u.userID
+       WHERE a.eventID = ?
+       ORDER BY f.submittedAt DESC`,
+      [id]
+    )
+
+    // Average rating
+    const [avg] = await db.query(
+      `SELECT ROUND(AVG(f.starRating), 1) AS avgRating
+       FROM feedback f
+       JOIN attendance a ON f.attendanceID = a.attendanceID
+       WHERE a.eventID = ?`,
+      [id]
+    )
+
+    res.json({
+      event: event[0],
+      stats: {
+        totalRSVPs: totals[0].totalRSVPs,
+        totalCheckedIn: Number(totals[0].totalCheckedIn),
+        avgRating: avg[0].avgRating || 0,
+        feedbackCount: feedback.length,
+      },
+      feedback,
+    })
+  } catch (err) {
+    console.error('Attendance/feedback error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
 })
 
 export default router

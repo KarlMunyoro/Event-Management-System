@@ -22,6 +22,69 @@ function isAllowedRegistrationEmail(email) {
   return false
 }
 
+// ============================================================
+//  ADD THESE to authController.js
+//  Adjust the import references (db, bcrypt, jwt) to match how
+//  the top of your existing authController.js already imports them.
+//  This assumes: import db from '../config/db.js'
+//                import bcrypt from 'bcrypt'
+// ============================================================
+
+// GET /api/auth/me — return the logged-in user's profile
+export async function me(req, res) {
+  const userID = req.user.userID
+  try {
+    const [rows] = await db.query(
+      `SELECT u.userID, u.fullName, u.email, u.status, u.createdAt, r.roleName AS role
+       FROM users u
+       JOIN roles r ON u.roleID = r.roleID
+       WHERE u.userID = ?`,
+      [userID]
+    )
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+    res.json(rows[0])
+  } catch (err) {
+    console.error('Get profile error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+}
+
+// PUT /api/auth/password — change password after verifying the current one
+export async function changePassword(req, res) {
+  const userID = req.user.userID
+  const { currentPassword, newPassword } = req.body
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({ message: 'Current and new password are required' })
+  }
+  if (newPassword.length < 6) {
+    return res.status(400).json({ message: 'New password must be at least 6 characters' })
+  }
+
+  try {
+    const [rows] = await db.query('SELECT passwordHash FROM users WHERE userID = ?', [userID])
+    if (rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' })
+    }
+
+    const match = await bcrypt.compare(currentPassword, rows[0].passwordHash)
+    if (!match) {
+      return res.status(401).json({ message: 'Current password is incorrect' })
+    }
+
+    const newHash = await bcrypt.hash(newPassword, 10)
+    await db.query('UPDATE users SET passwordHash = ? WHERE userID = ?', [newHash, userID])
+
+    res.json({ message: 'Password updated successfully' })
+  } catch (err) {
+    console.error('Change password error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+}
+
+
 function shouldExposeDevVerificationLink() {
   return process.env.ALLOW_DEV_VERIFICATION_LINK === 'true' && process.env.NODE_ENV !== 'production'
 }

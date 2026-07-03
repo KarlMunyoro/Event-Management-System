@@ -4,6 +4,15 @@ import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const router = express.Router()
 
+// Marks any Active event whose day has passed as Archived.
+// Called before fetching feeds so data is always current (no cron needed).
+async function archivePastEvents() {
+  await db.query(
+    `UPDATE events SET status = 'Archived'
+     WHERE status = 'Active' AND eventDate < CURDATE()`
+  )
+}
+
 router.get('/categories', async (req, res) => {
   try {
     const [rows] = await db.query('SELECT categoryID, categoryName FROM categories ORDER BY categoryName ASC')
@@ -44,8 +53,11 @@ router.post('/', requireAuth, requireRole('Organizer', 'Admin'), async (req, res
   }
 })
 
+// Live feed — only Active events. Archives past ones first.
 router.get('/', async (req, res) => {
   try {
+    await archivePastEvents()
+
     const [events] = await db.query(`
       SELECT e.*, c.categoryName, v.venueName AS location
       FROM events e
@@ -60,6 +72,59 @@ router.get('/', async (req, res) => {
     res.status(500).json({ message: 'Server error' })
   }
 })
+
+// Archived events — MUST stay above '/:id' so "archived" isn't read as an ID.
+// Students/Admins see all archived events annotated with their attendance +
+// feedback state; Organizers see their own archived events with totals.
+router.get('/archived', requireAuth, async (req, res) => {
+  const userID = req.user.userID
+  const role = req.user.role
+
+  try {
+    await archivePastEvents()
+
+    if (role === 'Organizer') {
+      const [events] = await db.query(`
+        SELECT
+          e.eventID, e.title, e.description, e.eventDate, e.startTime, e.endTime,
+          c.categoryName, v.venueName AS location,
+          COUNT(a.attendanceID) AS totalRSVPs,
+          COALESCE(SUM(a.hasCheckedIn), 0) AS totalCheckedIn
+        FROM events e
+        JOIN categories c ON e.categoryID = c.categoryID
+        JOIN venues v ON e.venueID = v.venueID
+        LEFT JOIN attendance a ON a.eventID = e.eventID
+        WHERE e.status = 'Archived' AND e.organizerID = ?
+        GROUP BY e.eventID
+        ORDER BY e.eventDate DESC
+      `, [userID])
+
+      return res.json({ role, events })
+    }
+
+    const [events] = await db.query(`
+      SELECT
+        e.eventID, e.title, e.description, e.eventDate, e.startTime, e.endTime,
+        c.categoryName, v.venueName AS location,
+        a.attendanceID,
+        a.hasCheckedIn,
+        CASE WHEN f.feedbackID IS NOT NULL THEN 1 ELSE 0 END AS hasFeedback
+      FROM events e
+      JOIN categories c ON e.categoryID = c.categoryID
+      JOIN venues v ON e.venueID = v.venueID
+      LEFT JOIN attendance a ON a.eventID = e.eventID AND a.userID = ?
+      LEFT JOIN feedback f ON f.attendanceID = a.attendanceID
+      WHERE e.status = 'Archived'
+      ORDER BY e.eventDate DESC
+    `, [userID])
+
+    res.json({ role, events })
+  } catch (err) {
+    console.error('Archived events error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 // GET single event by ID
 router.get('/:id', async (req, res) => {
   try {
@@ -80,8 +145,8 @@ router.get('/:id', async (req, res) => {
     console.error(err)
     res.status(500).json({ message: 'Server error' })
   }
-}
-)
+})
+
 // UPDATE an event
 router.put('/:id', requireAuth, requireRole('Organizer', 'Admin'), async (req, res) => {
   const { title, description, eventDate, startTime, endTime, location, categoryID } = req.body
