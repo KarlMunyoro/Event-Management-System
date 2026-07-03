@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { Calendar, Clock, MapPin, CheckCircle } from 'lucide-react'
 import api from '../services/api'
+import Navbar from '../components/Navbar'
 
 export default function EventDetailPage() {
   const { id } = useParams()
@@ -111,55 +112,7 @@ const userID = getUserIDFromToken(token)
     <div style={{ minHeight: '100vh', background: '#F8F9FB', fontFamily: 'sans-serif' }}>
 
       {/* Navbar */}
-      <div style={{
-        background: '#1E3A5F',
-        padding: '12px 24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '10px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-      }}>
-        <span
-          onClick={() => navigate('/events')}
-          style={{ fontSize: '16px', fontWeight: '700', color: '#F5A623', cursor: 'pointer' }}
-        >
-          CampusEvents
-        </span>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <a href="/events" style={{ fontSize: '13px', color: '#B0C4DE', textDecoration: 'none' }}>Events</a>
-          <a href="/my-rsvps" style={{ fontSize: '13px', color: '#B0C4DE', textDecoration: 'none' }}>My RSVPs</a>
-          <a href="/archived" style={{ fontSize: '13px', color: '#B0C4DE', textDecoration: 'none' }}>Archived</a>
-          {role === 'Organizer' && (
-            <a href="/organizer/dashboard" style={{ fontSize: '13px', color: '#F5A623', textDecoration: 'none', fontWeight: '600' }}>Dashboard</a>
-          )}
-          {role === 'Admin' && (
-            <a href="/admin/dashboard" style={{ fontSize: '13px', color: '#F5A623', textDecoration: 'none', fontWeight: '600' }}>Admin</a>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: '#F5A623', color: '#1E3A5F',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '12px', fontWeight: '700',
-            }}>
-              {fullName?.charAt(0).toUpperCase()}
-            </div>
-            <span style={{ fontSize: '12px', color: '#B0C4DE', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {fullName}
-            </span>
-            <button
-              onClick={handleLogout}
-              style={{ fontSize: '12px', color: '#1E3A5F', background: '#F5A623', border: 'none', borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontWeight: '600' }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Navbar />
 
       {/* Hero banner */}
       <div style={{

@@ -93,6 +93,7 @@ export default function CreateEventPage() {
           <a href="/organizer/events" style={{ fontSize: '13px', color: '#F5A623', textDecoration: 'none' }}>My events</a>
           <a href="/organizer/create" style={{ fontSize: '13px', fontWeight: '600', color: '#F5A623', textDecoration: 'none' }}>Create event</a>
           <a href="/organizer/scanner" style={{ fontSize: '13px', color: '#F5A623', textDecoration: 'none' }}>Scanner</a>
+          
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <div style={{
               width: '32px', height: '32px', borderRadius: '50%',

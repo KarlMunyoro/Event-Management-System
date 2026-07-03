@@ -13,6 +13,13 @@ import CreateEventPage from './pages/CreateEventPage'
 import EditEventPage from './pages/EditEventsPage'
 import CheckInPage from './pages/CheckInPage'
 import OrganizerScanPage from './pages/OrganizerScanPage'
+import OrganizerEventsPage from './pages/OrganizerEventsPage'
+import AttendancePage from './pages/AttendancePage'
+import ProfilePage from './pages/ProfilePage'
+import AdminDashboardPage from './pages/AdminDashboardPage'
+import OrganizerRequestsPage from './pages/OrganizerRequestsPage'
+import UserManagementPage from './pages/UserManagementPage'
+import ArchivedEventsPage from './pages/ArchivedEventsPage'
 
 function App() {
   return (
@@ -32,6 +39,13 @@ function App() {
       <Route path="/organizer/create" element={<CreateEventPage />} />
       <Route path="/checkin" element={<CheckInPage />} />
       <Route path="/organizer/scanner" element={<OrganizerScanPage />} />
+      <Route path="/organizer/events" element={<OrganizerEventsPage />} />
+      <Route path="/organizer/events/:id/attendance" element={<AttendancePage />} />
+      <Route path="/profile" element={<ProfilePage />} />
+      <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+      <Route path="/admin/organizer-requests" element={<OrganizerRequestsPage />} />
+      <Route path="/admin/users" element={<UserManagementPage />} />
+      <Route path="/archived" element={<ArchivedEventsPage />} />
     </Routes>
   )
 }
