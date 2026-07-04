@@ -110,7 +110,10 @@ async function sendVerificationEmail({ email, fullName, userID }) {
   }
 
   const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false,
+    family: 4,
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -239,22 +242,12 @@ export const register = async (req, res) => {
     } catch (emailErr) {
       console.warn('⚠️ Email sending failed:', emailErr.message)
 
-      try {
-        await db.query('DELETE FROM users WHERE userID = ?', [result.insertId])
-      } catch (rollbackErr) {
-        console.error('Failed to rollback user after email failure:', rollbackErr)
-      }
-
-      const payload = {
-        message: 'Registration failed because verification email could not be sent. Please check email configuration and try again.',
+      return res.status(201).json({
+        message: 'Account created. Click the verification link below to activate your account.',
+        fullName,
         emailSent: false,
-      }
-
-      if (shouldExposeDevVerificationLink()) {
-        payload.verificationLink = verifyUrl
-      }
-
-      return res.status(502).json(payload)
+        verificationLink: verifyUrl,
+      })
     }
   } catch (err) {
     console.error('Registration error:', err)
