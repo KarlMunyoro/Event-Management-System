@@ -1,7 +1,6 @@
 [build]
 builder = "NIXPACKS"
-buildCommand = "cd backend && npm install"
 
 [deploy]
-startCommand = "cd backend && node index.js"
+startCommand = "node index.js"
 healthcheckPath = "/api/test"
