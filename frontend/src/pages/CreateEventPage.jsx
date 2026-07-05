@@ -2,10 +2,13 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Calendar, Clock, MapPin, Tag, AlignLeft, Type } from 'lucide-react'
 import api from '../services/api'
+import Navbar from '../components/Navbar'
+
+const EARLIEST_START_TIME = '07:00'
+const LATEST_END_TIME = '21:00'
 
 export default function CreateEventPage() {
   const navigate = useNavigate()
-  const fullName = localStorage.getItem('fullName')
   const role = localStorage.getItem('role')
   const token = localStorage.getItem('token')
 
@@ -44,6 +47,11 @@ export default function CreateEventPage() {
       return
     }
 
+    if (form.startTime < EARLIEST_START_TIME || form.endTime > LATEST_END_TIME) {
+      setError('Events must be held between 7:00 AM and 9:00 PM')
+      return
+    }
+
     setSubmitting(true)
     try {
       const res = await api.post('/events', form, {
@@ -57,64 +65,12 @@ export default function CreateEventPage() {
     }
   }
 
-  function handleLogout() {
-    localStorage.clear()
-    navigate('/login')
-  }
-
   const today = new Date().toISOString().split('T')[0]
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8F9FB', fontFamily: 'sans-serif' }}>
 
-      {/* Navbar */}
-      <div style={{
-        background: '#1E3A5F',
-        padding: '12px 24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '10px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-      }}>
-        <span
-          onClick={() => navigate('/events')}
-          style={{ fontSize: '16px', fontWeight: '700', color: '#F5A623', cursor: 'pointer' }}
-        >
-          CampusEvents
-        </span>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <a href="/events" style={{ fontSize: '13px', color: '#B0C4DE', textDecoration: 'none' }}>Events</a>
-          <a href="/my-rsvps" style={{ fontSize: '13px', color: '#B0C4DE', textDecoration: 'none' }}>My RSVPs</a>
-          <a href="/organizer/dashboard" style={{ fontSize: '13px', color: '#F5A623', textDecoration: 'none' }}>Dashboard</a>
-          <a href="/organizer/events" style={{ fontSize: '13px', color: '#F5A623', textDecoration: 'none' }}>My events</a>
-          <a href="/organizer/create" style={{ fontSize: '13px', fontWeight: '600', color: '#F5A623', textDecoration: 'none' }}>Create event</a>
-          <a href="/organizer/scanner" style={{ fontSize: '13px', color: '#F5A623', textDecoration: 'none' }}>Scanner</a>
-          
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: '#F5A623', color: '#1E3A5F',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '12px', fontWeight: '700',
-            }}>
-              {fullName?.charAt(0).toUpperCase()}
-            </div>
-            <span style={{ fontSize: '12px', color: '#B0C4DE', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {fullName}
-            </span>
-            <button
-              onClick={handleLogout}
-              style={{ fontSize: '12px', color: '#1E3A5F', background: '#F5A623', border: 'none', borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontWeight: '600' }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Navbar />
 
       {/* Hero banner */}
       <div style={{
@@ -244,6 +200,8 @@ export default function CreateEventPage() {
                   type="time"
                   value={form.startTime}
                   onChange={handleChange}
+                  min={EARLIEST_START_TIME}
+                  max={LATEST_END_TIME}
                   required
                   style={inputStyle}
                 />
@@ -258,11 +216,16 @@ export default function CreateEventPage() {
                   type="time"
                   value={form.endTime}
                   onChange={handleChange}
+                  min={EARLIEST_START_TIME}
+                  max={LATEST_END_TIME}
                   required
                   style={inputStyle}
                 />
               </div>
             </div>
+            <p style={{ fontSize: '11px', color: '#9AA7B5', marginTop: '-12px', marginBottom: '18px' }}>
+              Events must be held between 7:00 AM and 9:00 PM.
+            </p>
 
             {/* Location */}
             <div style={{ marginBottom: '24px' }}>

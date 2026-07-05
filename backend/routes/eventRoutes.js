@@ -4,6 +4,14 @@ import { requireAuth, requireRole } from '../middleware/auth.js'
 
 const router = express.Router()
 
+const EARLIEST_START_TIME = '07:00'
+const LATEST_END_TIME = '21:00'
+
+// Events may only run between 7am and 9pm.
+function isOutsideAllowedHours(startTime, endTime) {
+  return startTime < EARLIEST_START_TIME || endTime > LATEST_END_TIME
+}
+
 // Marks any Active event whose day has passed as Archived.
 // Called before fetching feeds so data is always current (no cron needed).
 async function archivePastEvents() {
@@ -29,6 +37,10 @@ router.post('/', requireAuth, requireRole('Organizer', 'Admin'), async (req, res
 
   if (!title || !eventDate || !startTime || !endTime || !location || !categoryID) {
     return res.status(400).json({ message: 'All fields are required' })
+  }
+
+  if (isOutsideAllowedHours(startTime, endTime)) {
+    return res.status(400).json({ message: 'Events must be held between 7:00 AM and 9:00 PM' })
   }
 
   try {
@@ -87,6 +99,7 @@ router.get('/archived', requireAuth, async (req, res) => {
       const [events] = await db.query(`
         SELECT
           e.eventID, e.title, e.description, e.eventDate, e.startTime, e.endTime,
+          e.status, e.removedReason,
           c.categoryName, v.venueName AS location,
           COUNT(a.attendanceID) AS totalRSVPs,
           COALESCE(SUM(a.hasCheckedIn), 0) AS totalCheckedIn
@@ -94,7 +107,7 @@ router.get('/archived', requireAuth, async (req, res) => {
         JOIN categories c ON e.categoryID = c.categoryID
         JOIN venues v ON e.venueID = v.venueID
         LEFT JOIN attendance a ON a.eventID = e.eventID
-        WHERE e.status = 'Archived' AND e.organizerID = ?
+        WHERE e.status IN ('Archived', 'Cancelled') AND e.organizerID = ?
         GROUP BY e.eventID
         ORDER BY e.eventDate DESC
       `, [userID])
@@ -105,6 +118,7 @@ router.get('/archived', requireAuth, async (req, res) => {
     const [events] = await db.query(`
       SELECT
         e.eventID, e.title, e.description, e.eventDate, e.startTime, e.endTime,
+        e.status, e.removedReason,
         c.categoryName, v.venueName AS location,
         a.attendanceID,
         a.hasCheckedIn,
@@ -114,13 +128,45 @@ router.get('/archived', requireAuth, async (req, res) => {
       JOIN venues v ON e.venueID = v.venueID
       LEFT JOIN attendance a ON a.eventID = e.eventID AND a.userID = ?
       LEFT JOIN feedback f ON f.attendanceID = a.attendanceID
-      WHERE e.status = 'Archived'
+      WHERE e.status IN ('Archived', 'Cancelled')
       ORDER BY e.eventDate DESC
     `, [userID])
 
     res.json({ role, events })
   } catch (err) {
     console.error('Archived events error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
+// Cancel an event (soft delete) — MUST stay above '/:id'.
+router.put('/:id/cancel', requireAuth, requireRole('Organizer', 'Admin'), async (req, res) => {
+  const eventID = req.params.id
+  const { reason } = req.body
+
+  if (!reason || !reason.trim()) {
+    return res.status(400).json({ message: 'A reason is required to cancel an event' })
+  }
+
+  try {
+    const [existingEvents] = await db.query('SELECT organizerID FROM events WHERE eventID = ?', [eventID])
+    if (existingEvents.length === 0) {
+      return res.status(404).json({ message: 'Event not found' })
+    }
+
+    const isOwner = existingEvents[0].organizerID === req.user.userID
+    if (!isOwner && req.user.role !== 'Admin') {
+      return res.status(403).json({ message: 'You do not have permission to cancel this event' })
+    }
+
+    await db.query(
+      'UPDATE events SET status = ?, removedReason = ? WHERE eventID = ?',
+      ['Cancelled', reason.trim(), eventID]
+    )
+
+    res.json({ message: 'Event cancelled successfully' })
+  } catch (err) {
+    console.error(err)
     res.status(500).json({ message: 'Server error' })
   }
 })
@@ -154,6 +200,10 @@ router.put('/:id', requireAuth, requireRole('Organizer', 'Admin'), async (req, r
 
   if (!title || !eventDate || !startTime || !endTime || !location || !categoryID) {
     return res.status(400).json({ message: 'All fields are required' })
+  }
+
+  if (isOutsideAllowedHours(startTime, endTime)) {
+    return res.status(400).json({ message: 'Events must be held between 7:00 AM and 9:00 PM' })
   }
 
   try {

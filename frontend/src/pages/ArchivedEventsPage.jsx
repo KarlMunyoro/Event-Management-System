@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Inbox, Users, CheckCircle, Star } from 'lucide-react'
+import { Calendar, Clock, MapPin, Inbox, Users, CheckCircle, Star, Ban } from 'lucide-react'
 import api from '../services/api'
 import Navbar from '../components/Navbar'
 
@@ -56,13 +56,15 @@ export default function ArchivedEventsPage() {
           </div>
         ) : (
           <div style={{ display: 'grid', gap: '12px' }}>
-            {events.map(event => (
+            {events.map(event => {
+              const isCancelled = event.status === 'Cancelled'
+              return (
               <div
                 key={event.eventID}
                 style={{
                   background: '#ffffff',
                   border: '1px solid #DDE6F0',
-                  borderLeft: '4px solid #B0C4DE',
+                  borderLeft: `4px solid ${isCancelled ? '#F7C1C1' : '#B0C4DE'}`,
                   borderRadius: '12px',
                   padding: '16px 18px',
                   boxShadow: '0 1px 4px rgba(30,58,95,0.06)',
@@ -70,14 +72,25 @@ export default function ArchivedEventsPage() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
                   <div style={{ fontSize: '14px', fontWeight: '600', color: '#1A1A2E', flex: 1 }}>{event.title}</div>
-                  <span style={{
-                    fontSize: '11px', fontWeight: '500', padding: '3px 10px', borderRadius: '20px',
-                    background: categoryColors[event.categoryName]?.bg || '#FFF8E1',
-                    color: categoryColors[event.categoryName]?.color || '#7A5C00',
-                    whiteSpace: 'nowrap', flexShrink: 0,
-                  }}>
-                    {event.categoryName}
-                  </span>
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                    {isCancelled && (
+                      <span style={{
+                        fontSize: '11px', fontWeight: '600', padding: '3px 10px', borderRadius: '20px',
+                        background: '#FCEBEB', color: '#791F1F', whiteSpace: 'nowrap',
+                        display: 'inline-flex', alignItems: 'center', gap: '4px',
+                      }}>
+                        <Ban size={11} /> Cancelled
+                      </span>
+                    )}
+                    <span style={{
+                      fontSize: '11px', fontWeight: '500', padding: '3px 10px', borderRadius: '20px',
+                      background: categoryColors[event.categoryName]?.bg || '#FFF8E1',
+                      color: categoryColors[event.categoryName]?.color || '#7A5C00',
+                      whiteSpace: 'nowrap', flexShrink: 0,
+                    }}>
+                      {event.categoryName}
+                    </span>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', fontSize: '12px', color: '#5A6A7A', marginBottom: '8px' }}>
@@ -85,6 +98,12 @@ export default function ArchivedEventsPage() {
                   {event.startTime && <span><Clock size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '3px' }} />{event.startTime.slice(0, 5)} – {event.endTime?.slice(0, 5)}</span>}
                   <span><MapPin size={12} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '3px' }} />{event.location}</span>
                 </div>
+
+                {isCancelled && event.removedReason && (
+                  <div style={{ fontSize: '12px', color: '#791F1F', marginBottom: '8px' }}>
+                    Reason: {event.removedReason}
+                  </div>
+                )}
 
                 <div style={{ fontSize: '12px', color: '#444', lineHeight: '1.6', marginBottom: (isOrganizer || event.attendanceID) ? '12px' : 0 }}>
                   {event.description?.slice(0, 140)}{event.description?.length > 140 ? '...' : ''}
@@ -109,7 +128,7 @@ export default function ArchivedEventsPage() {
                 )}
 
                 {/* Student: feedback prompt if they attended */}
-                {!isOrganizer && event.attendanceID && (
+                {!isOrganizer && !isCancelled && event.attendanceID && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingTop: '12px', borderTop: '1px solid #F4F6F9' }}>
                     {event.hasFeedback ? (
                       <span style={{ fontSize: '12px', color: '#1A5E2E', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
@@ -129,7 +148,8 @@ export default function ArchivedEventsPage() {
                   </div>
                 )}
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

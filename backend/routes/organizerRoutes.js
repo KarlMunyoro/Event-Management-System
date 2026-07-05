@@ -88,7 +88,8 @@ router.get('/dashboard', requireAuth, requireRole('Organizer'), async (req, res)
     console.error('Organizer dashboard error:', err)
     res.status(500).json({ message: 'Server error' })
   }
-  // Add to organizerRoutes.js
+})
+
 // GET /api/organizer/events/:id/attendance
 // Returns RSVP count, check-in count, and all feedback for one event (organizer's own).
 router.get('/events/:id/attendance', requireAuth, requireRole('Organizer'), async (req, res) => {
@@ -158,7 +159,6 @@ router.get('/events/:id/attendance', requireAuth, requireRole('Organizer'), asyn
     console.error('Attendance/feedback error:', err)
     res.status(500).json({ message: 'Server error' })
   }
-})
 })
 
 export default router
