@@ -51,6 +51,7 @@ export default function OrganizerEventsPage() {
       Rejected: { bg: '#FCEBEB', color: '#791F1F', border: '#F7C1C1' },
       Archived: { bg: '#EEF1F5', color: '#5A6A7A', border: '#DDE6F0' },
       Cancelled: { bg: '#FCEBEB', color: '#791F1F', border: '#F7C1C1' },
+      Removed: { bg: '#FCEBEB', color: '#791F1F', border: '#F7C1C1' },
     }
     const s = map[status] || map.Archived
     return (
@@ -196,7 +197,7 @@ export default function OrganizerEventsPage() {
                         >
                           <Users size={14} />
                         </button>
-                        {event.status !== 'Cancelled' && (
+                        {event.status !== 'Cancelled' && event.status !== 'Removed' && (
                           <button
                             onClick={() => handleCancel(event.eventID)}
                             style={{ ...iconBtnStyle, color: '#791F1F', borderColor: '#F7C1C1' }}

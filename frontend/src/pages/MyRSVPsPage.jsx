@@ -37,7 +37,7 @@ export default function MyRSVPsPage() {
   }
 
   const upcoming = rsvps.filter(r => r.eventStatus === 'Active')
-  const archived = rsvps.filter(r => r.eventStatus === 'Archived' || r.eventStatus === 'Cancelled')
+  const archived = rsvps.filter(r => r.eventStatus === 'Archived' || r.eventStatus === 'Cancelled' || r.eventStatus === 'Removed')
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8F9FB', fontFamily: 'sans-serif' }}>
@@ -135,7 +135,7 @@ export default function MyRSVPsPage() {
 
 function RSVPCard({ rsvp, navigate, categoryColors, isPast }) {
   const catColor = categoryColors[rsvp.categoryName] || { bg: '#FFF8E1', color: '#7A5C00' }
-  const isCancelled = rsvp.eventStatus === 'Cancelled'
+  const isCancelled = rsvp.eventStatus === 'Cancelled' || rsvp.eventStatus === 'Removed'
 
   return (
     <div style={{

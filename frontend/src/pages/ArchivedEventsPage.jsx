@@ -57,7 +57,7 @@ export default function ArchivedEventsPage() {
         ) : (
           <div style={{ display: 'grid', gap: '12px' }}>
             {events.map(event => {
-              const isCancelled = event.status === 'Cancelled'
+              const isCancelled = event.status === 'Cancelled' || event.status === 'Removed'
               return (
               <div
                 key={event.eventID}

@@ -24,6 +24,28 @@ function adminOnly(req, res, next) {
   next()
 }
 
+async function ensureRoleChangeReasonColumn() {
+  const [rows] = await db.query(
+    `SELECT 1
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'users'
+       AND COLUMN_NAME = 'roleChangeReason'
+     LIMIT 1`
+  )
+
+  if (rows.length > 0) return
+
+  try {
+    await db.query('ALTER TABLE users ADD COLUMN roleChangeReason TEXT NULL')
+  } catch (err) {
+    // Ignore race where another request added the column first.
+    if (err?.code !== 'ER_DUP_FIELDNAME') {
+      throw err
+    }
+  }
+}
+
 // ------------------------------------------------------------
 // GET /api/admin/dashboard
 // ------------------------------------------------------------
@@ -186,10 +208,14 @@ router.put('/users/:id', authMiddleware, adminOnly, async (req, res) => {
       if (!reason || !reason.trim()) {
         return res.status(400).json({ message: 'A reason is required to change a role' })
       }
-      const [roleRow] = await db.query('SELECT roleID FROM roles WHERE roleName = ?', [role])
+
+      const normalizedRole = String(role).trim()
+      const [roleRow] = await db.query('SELECT roleID FROM roles WHERE roleName = ?', [normalizedRole])
       if (roleRow.length === 0) {
         return res.status(400).json({ message: 'Invalid role' })
       }
+
+      await ensureRoleChangeReasonColumn()
       await db.query(
         'UPDATE users SET roleID = ?, roleChangeReason = ? WHERE userID = ?',
         [roleRow[0].roleID, reason.trim(), id]
