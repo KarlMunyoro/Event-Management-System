@@ -48,13 +48,13 @@ export default function EventsFeedPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8F9FB', fontFamily: 'sans-serif' }}>
+    <div style={{ minHeight: '100vh', background: 'linear-gradient(180deg, #1E3A5F 0%, #2E5480 32%, #F8F9FB 78%)', fontFamily: 'sans-serif' }}>
 
       {/* Navbar */}
      <Navbar />
 
       {/* Main content */}
-      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '0 16px 40px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto', padding: '18px 16px 40px' }}>
 
         {/* Category filters */}
         <div style={{
