@@ -141,25 +141,27 @@ export default function ProfilePage() {
           </form>
         </div>
 
-        {/* Request organizer access */}
-        <div style={{ ...cardStyle, marginTop: '20px' }}>
-          <h2 style={sectionTitle}><Send size={15} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Request organizer access</h2>
-          <p style={{ fontSize: '12px', color: '#5A6A7A', marginBottom: '16px' }}>
-            Want to create and manage events? Submit a request for an admin to review.
-          </p>
+        {/* Request organizer access (students only) */}
+        {profile?.role === 'Student' && (
+          <div style={{ ...cardStyle, marginTop: '20px' }}>
+            <h2 style={sectionTitle}><Send size={15} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Request organizer access</h2>
+            <p style={{ fontSize: '12px', color: '#5A6A7A', marginBottom: '16px' }}>
+              Want to create and manage events? Submit a request for an admin to review.
+            </p>
 
-          {reqMsg.text && <Banner type={reqMsg.type} text={reqMsg.text} />}
+            {reqMsg.text && <Banner type={reqMsg.type} text={reqMsg.text} />}
 
-          <form onSubmit={handleRequestSubmit}>
-            <label style={labelStyle}>Club / department name</label>
-            <input type="text" value={reqForm.clubName} onChange={e => setReqForm({ ...reqForm, clubName: e.target.value })} placeholder="e.g. Computer Science Club" required style={inputStyle} />
-            <label style={labelStyle}>Reason</label>
-            <textarea value={reqForm.reason} onChange={e => setReqForm({ ...reqForm, reason: e.target.value })} placeholder="Tell us why you need organizer access..." rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'sans-serif', marginBottom: '18px' }} />
-            <button type="submit" disabled={reqSubmitting} style={primaryBtn(reqSubmitting)}>
-              {reqSubmitting ? 'Submitting...' : 'Submit request'}
-            </button>
-          </form>
-        </div>
+            <form onSubmit={handleRequestSubmit}>
+              <label style={labelStyle}>Club / department name</label>
+              <input type="text" value={reqForm.clubName} onChange={e => setReqForm({ ...reqForm, clubName: e.target.value })} placeholder="e.g. Computer Science Club" required style={inputStyle} />
+              <label style={labelStyle}>Reason</label>
+              <textarea value={reqForm.reason} onChange={e => setReqForm({ ...reqForm, reason: e.target.value })} placeholder="Tell us why you need organizer access..." rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'sans-serif', marginBottom: '18px' }} />
+              <button type="submit" disabled={reqSubmitting} style={primaryBtn(reqSubmitting)}>
+                {reqSubmitting ? 'Submitting...' : 'Submit request'}
+              </button>
+            </form>
+          </div>
+        )}
 
       </div>
     </div>
