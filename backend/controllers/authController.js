@@ -1,3 +1,4 @@
+import { Resend } from 'resend'
 import db from '../config/db.js'
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
@@ -16,26 +17,17 @@ function isAllowedRegistrationEmail(email) {
 
   if (normalized.endsWith('@strathmore.edu')) return true
 
-  // Local testing fallback: allow configured sender account only when explicitly enabled.
   if (allowSenderEmailRegistration && senderEmail && normalized === senderEmail) return true
 
   return false
 }
 
-// ============================================================
-//  ADD THESE to authController.js
-//  Adjust the import references (db, bcrypt, jwt) to match how
-//  the top of your existing authController.js already imports them.
-//  This assumes: import db from '../config/db.js'
-//                import bcrypt from 'bcrypt'
-// ============================================================
 
-// GET /api/auth/me — return the logged-in user's profile
 export async function me(req, res) {
   const userID = req.user.userID
   try {
     const [rows] = await db.query(
-      `SELECT u.userID, u.fullName, u.email, u.status, u.createdAt, r.roleName AS role
+      `SELECT u.userID, u.fullName, u.email, u.status, u.createdAt, u.roleChangeReason, r.roleName AS role
        FROM users u
        JOIN roles r ON u.roleID = r.roleID
        WHERE u.userID = ?`,
@@ -51,7 +43,17 @@ export async function me(req, res) {
   }
 }
 
-// PUT /api/auth/password — change password after verifying the current one
+export async function acknowledgeRoleChange(req, res) {
+  const userID = req.user.userID
+  try {
+    await db.query('UPDATE users SET roleChangeReason = NULL WHERE userID = ?', [userID])
+    res.json({ message: 'Acknowledged' })
+  } catch (err) {
+    console.error('Acknowledge role change error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+}
+
 export async function changePassword(req, res) {
   const userID = req.user.userID
   const { currentPassword, newPassword } = req.body
@@ -103,22 +105,18 @@ function buildVerifyUrl(userID) {
 async function sendVerificationEmail({ email, fullName, userID }) {
   const verifyUrl = buildVerifyUrl(userID)
 
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS || process.env.EMAIL_PASS === 'your_gmail_app_password') {
-    const err = new Error('Email credentials are not configured. Set EMAIL_USER and EMAIL_PASS (Gmail App Password).')
+  if (!process.env.RESEND_API_KEY) {
+    const err = new Error('Email is not configured. Set RESEND_API_KEY.')
     err.code = 'EMAIL_CONFIG_MISSING'
     throw err
   }
-
-  const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  })
-
-  await transporter.sendMail({
-    from: process.env.EMAIL_USER,
+ 
+  const resend = new Resend(process.env.RESEND_API_KEY)
+ 
+  const sendResult = await resend.emails.send({
+    // Until you verify your own domain in Resend, you MUST use
+    // this exact sender — Resend provides it for testing:
+    from: 'CampusEvents <onboarding@resend.dev>',
     to: email,
     subject: 'Verify your CampusEvents account',
     html: `<p>Hi ${fullName},</p>
@@ -128,6 +126,8 @@ async function sendVerificationEmail({ email, fullName, userID }) {
            <p>${verifyUrl}</p>`,
     text: `Hi ${fullName},\n\nVerify your account using this link:\n${verifyUrl}\n\nIf you did not create this account, you can ignore this email.`,
   })
+  console.log('📧 Resend response:', JSON.stringify(sendResult))
+  console.log('📧 Sent to:', email)
 }
 
 async function resolveRoleID(roleName) {

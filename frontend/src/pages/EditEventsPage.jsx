@@ -4,6 +4,9 @@ import { Calendar, Clock, MapPin, Tag, AlignLeft, Type } from 'lucide-react'
 import api from '../services/api'
 import Navbar from '../components/Navbar'
 
+const EARLIEST_START_TIME = '07:00'
+const LATEST_END_TIME = '21:00'
+
 export default function EditEventPage() {
   const navigate = useNavigate()
   const { id } = useParams()
@@ -24,6 +27,7 @@ export default function EditEventPage() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
   useEffect(() => {
     if (role !== 'Organizer' && role !== 'Admin') {
@@ -66,6 +70,11 @@ export default function EditEventPage() {
       return
     }
 
+    if (form.startTime < EARLIEST_START_TIME || form.endTime > LATEST_END_TIME) {
+      setError('Events must be held between 7:00 AM and 9:00 PM')
+      return
+    }
+
     setSubmitting(true)
     try {
       await api.put(`/events/${id}`, form, {
@@ -82,6 +91,25 @@ export default function EditEventPage() {
   function handleLogout() {
     localStorage.clear()
     navigate('/login')
+  }
+
+  async function handleCancelEvent() {
+    const reason = window.prompt('Why are you cancelling this event? This reason will be shown to attendees.')
+    if (reason === null) return
+    if (!reason.trim()) {
+      setError('A reason is required to cancel an event')
+      return
+    }
+    setCancelling(true)
+    try {
+      await api.put(`/events/${id}/cancel`, { reason: reason.trim() }, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      navigate('/organizer/events')
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to cancel event')
+      setCancelling(false)
+    }
   }
 
   const today = new Date().toISOString().split('T')[0]
@@ -229,6 +257,8 @@ export default function EditEventPage() {
                   type="time"
                   value={form.startTime}
                   onChange={handleChange}
+                  min={EARLIEST_START_TIME}
+                  max={LATEST_END_TIME}
                   required
                   style={inputStyle}
                 />
@@ -243,11 +273,16 @@ export default function EditEventPage() {
                   type="time"
                   value={form.endTime}
                   onChange={handleChange}
+                  min={EARLIEST_START_TIME}
+                  max={LATEST_END_TIME}
                   required
                   style={inputStyle}
                 />
               </div>
             </div>
+            <p style={{ fontSize: '11px', color: '#9AA7B5', marginTop: '-12px', marginBottom: '18px' }}>
+              Events must be held between 7:00 AM and 9:00 PM.
+            </p>
 
             {/* Location */}
             <div style={{ marginBottom: '24px' }}>
@@ -286,6 +321,26 @@ export default function EditEventPage() {
             </button>
 
           </form>
+
+          <button
+            type="button"
+            onClick={handleCancelEvent}
+            disabled={cancelling}
+            style={{
+              width: '100%',
+              marginTop: '12px',
+              padding: '12px',
+              background: 'none',
+              color: cancelling ? '#E3A9A9' : '#791F1F',
+              border: `1.5px solid ${cancelling ? '#F7C1C1' : '#F7C1C1'}`,
+              borderRadius: '10px',
+              fontSize: '13px',
+              fontWeight: '700',
+              cursor: cancelling ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {cancelling ? 'Cancelling...' : 'Cancel event'}
+          </button>
         </div>
       </div>
     </div>

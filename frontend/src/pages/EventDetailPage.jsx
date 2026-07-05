@@ -114,6 +114,21 @@ const userID = getUserIDFromToken(token)
       {/* Navbar */}
       <Navbar />
 
+      {event.status === 'Cancelled' && (
+        <div style={{
+          background: '#FCEBEB', borderBottom: '1px solid #F7C1C1',
+          color: '#791F1F', fontSize: '13px', fontWeight: '600',
+          textAlign: 'center', padding: '10px 16px',
+        }}>
+          ⚠ This event has been cancelled
+          {event.removedReason && (
+            <div style={{ fontWeight: '400', fontSize: '12px', marginTop: '4px' }}>
+              Reason: {event.removedReason}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Hero banner */}
       <div style={{
         background: 'linear-gradient(180deg, #1E3A5F 0%, #2E5480 40%, #F8F9FB 100%)',

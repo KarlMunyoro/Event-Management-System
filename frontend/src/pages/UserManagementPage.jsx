@@ -36,8 +36,14 @@ export default function UserManagementPage() {
   }
 
   async function changeRole(userID, newRole) {
+    const reason = window.prompt(`Why are you changing this user's role to ${newRole}? This reason will be shown to them.`)
+    if (reason === null) return
+    if (!reason.trim()) {
+      setError('A reason is required to change a role')
+      return
+    }
     try {
-      await api.put(`/admin/users/${userID}`, { role: newRole })
+      await api.put(`/admin/users/${userID}`, { role: newRole, reason: reason.trim() })
       setUsers(prev => prev.map(u => u.userID === userID ? { ...u, role: newRole } : u))
     } catch (err) {
       setError(err.response?.data?.message || 'Failed to change role')

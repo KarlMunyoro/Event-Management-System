@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Inbox, CheckCircle, Check, Hourglass } from 'lucide-react'
+import { Calendar, Clock, MapPin, Inbox, CheckCircle, Check, Hourglass, Ban } from 'lucide-react'
 import api from '../services/api'
+import Navbar from '../components/Navbar'
 
 export default function MyRSVPsPage() {
   const navigate = useNavigate()
   const [rsvps, setRsvps] = useState([])
   const [loading, setLoading] = useState(true)
-  const fullName = localStorage.getItem('fullName')
-  const role = localStorage.getItem('role')
   const token = localStorage.getItem('token')
 
   const categoryColors = {
@@ -37,67 +36,13 @@ export default function MyRSVPsPage() {
     }
   }
 
-  function handleLogout() {
-    localStorage.clear()
-    navigate('/login')
-  }
-
   const upcoming = rsvps.filter(r => r.eventStatus === 'Active')
-  const archived = rsvps.filter(r => r.eventStatus === 'Archived')
+  const archived = rsvps.filter(r => r.eventStatus === 'Archived' || r.eventStatus === 'Cancelled')
 
   return (
     <div style={{ minHeight: '100vh', background: '#F8F9FB', fontFamily: 'sans-serif' }}>
 
-      {/* Navbar */}
-      <div style={{
-        background: '#1E3A5F',
-        padding: '12px 24px',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '10px',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-      }}>
-        <span
-          onClick={() => navigate('/events')}
-          style={{ fontSize: '16px', fontWeight: '700', color: '#F5A623', cursor: 'pointer' }}
-        >
-          CampusEvents
-        </span>
-        <div style={{ display: 'flex', gap: '16px', alignItems: 'center', flexWrap: 'wrap' }}>
-          <a href="/events" style={{ fontSize: '13px', color: '#B0C4DE', textDecoration: 'none' }}>Events</a>
-          <a href="/my-rsvps" style={{ fontSize: '13px', fontWeight: '600', color: '#ffffff', textDecoration: 'none' }}>My RSVPs</a>
-          <a href="/archived" style={{ fontSize: '13px', color: '#B0C4DE', textDecoration: 'none' }}>Archived</a>
-          {role === 'Organizer' && (
-            <a href="/organizer/dashboard" style={{ fontSize: '13px', color: '#F5A623', textDecoration: 'none', fontWeight: '600' }}>Dashboard</a>
-          )}
-          {role === 'Admin' && (
-            <a href="/admin/dashboard" style={{ fontSize: '13px', color: '#F5A623', textDecoration: 'none', fontWeight: '600' }}>Admin</a>
-          )}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '50%',
-              background: '#F5A623', color: '#1E3A5F',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: '12px', fontWeight: '700',
-            }}>
-              {fullName?.charAt(0).toUpperCase()}
-            </div>
-            <span style={{ fontSize: '12px', color: '#B0C4DE', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {fullName}
-            </span>
-            <button
-              onClick={handleLogout}
-              style={{ fontSize: '12px', color: '#1E3A5F', background: '#F5A623', border: 'none', borderRadius: '6px', padding: '5px 12px', cursor: 'pointer', fontWeight: '600' }}
-            >
-              Logout
-            </button>
-          </div>
-        </div>
-      </div>
+      <Navbar />
 
       {/* Hero banner */}
       <div style={{
@@ -190,12 +135,13 @@ export default function MyRSVPsPage() {
 
 function RSVPCard({ rsvp, navigate, categoryColors, isPast }) {
   const catColor = categoryColors[rsvp.categoryName] || { bg: '#FFF8E1', color: '#7A5C00' }
+  const isCancelled = rsvp.eventStatus === 'Cancelled'
 
   return (
     <div style={{
       background: '#ffffff',
       border: '1px solid #DDE6F0',
-      borderLeft: `4px solid ${isPast ? '#B0C4DE' : '#F5A623'}`,
+      borderLeft: `4px solid ${isCancelled ? '#F7C1C1' : isPast ? '#B0C4DE' : '#F5A623'}`,
       borderRadius: '12px',
       padding: '16px 18px',
       boxShadow: '0 1px 4px rgba(30,58,95,0.06)',
@@ -228,32 +174,49 @@ function RSVPCard({ rsvp, navigate, categoryColors, isPast }) {
 
       {/* Status badges */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
-        <span style={{
-          fontSize: '11px', fontWeight: '500', padding: '3px 10px',
-          borderRadius: '20px', background: '#EAF3DE', color: '#27500A',
-        }}>
-          <Check size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> RSVP confirmed
-        </span>
-        {rsvp.hasCheckedIn ? (
+        {isCancelled ? (
           <span style={{
             fontSize: '11px', fontWeight: '500', padding: '3px 10px',
-            borderRadius: '20px', background: '#E6F1FB', color: '#0C447C',
+            borderRadius: '20px', background: '#FCEBEB', color: '#791F1F',
           }}>
-            <Check size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> Checked in
+            <Ban size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> Event cancelled
           </span>
-        ) : !isPast ? (
-          <span style={{
-            fontSize: '11px', fontWeight: '500', padding: '3px 10px',
-            borderRadius: '20px', background: '#FFF8E1', color: '#7A5C00',
-          }}>
-            <Hourglass size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> Not yet checked in
-          </span>
-        ) : null}
+        ) : (
+          <>
+            <span style={{
+              fontSize: '11px', fontWeight: '500', padding: '3px 10px',
+              borderRadius: '20px', background: '#EAF3DE', color: '#27500A',
+            }}>
+              <Check size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> RSVP confirmed
+            </span>
+            {rsvp.hasCheckedIn ? (
+              <span style={{
+                fontSize: '11px', fontWeight: '500', padding: '3px 10px',
+                borderRadius: '20px', background: '#E6F1FB', color: '#0C447C',
+              }}>
+                <Check size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> Checked in
+              </span>
+            ) : !isPast ? (
+              <span style={{
+                fontSize: '11px', fontWeight: '500', padding: '3px 10px',
+                borderRadius: '20px', background: '#FFF8E1', color: '#7A5C00',
+              }}>
+                <Hourglass size={11} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '2px' }} /> Not yet checked in
+              </span>
+            ) : null}
+          </>
+        )}
       </div>
+
+      {isCancelled && rsvp.removedReason && (
+        <div style={{ fontSize: '12px', color: '#791F1F', marginBottom: '12px' }}>
+          Reason: {rsvp.removedReason}
+        </div>
+      )}
 
       {/* Action buttons */}
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        {!isPast && rsvp.token && (
+        {!isPast && !isCancelled && rsvp.token && (
           <button
             onClick={() => navigate(`/qr/${rsvp.attendanceID}`)}
             style={{
@@ -285,7 +248,7 @@ function RSVPCard({ rsvp, navigate, categoryColors, isPast }) {
         >
           View event
         </button>
-        {isPast && (
+        {isPast && !isCancelled && (
           <button
             onClick={() => navigate(`/feedback/${rsvp.eventID}`)}
             style={{

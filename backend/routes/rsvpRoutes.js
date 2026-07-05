@@ -118,6 +118,7 @@ router.get('/my', authMiddleware, async (req, res) => {
         e.startTime,
         e.endTime,
         e.status AS eventStatus,
+        e.removedReason,
         c.categoryName,
         v.venueName AS location,
         q.token,

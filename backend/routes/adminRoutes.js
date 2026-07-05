@@ -167,7 +167,7 @@ router.get('/users', authMiddleware, adminOnly, async (req, res) => {
 // ------------------------------------------------------------
 router.put('/users/:id', authMiddleware, adminOnly, async (req, res) => {
   const { id } = req.params
-  const { role, status } = req.body
+  const { role, status, reason } = req.body
   const requesterID = req.user.userID
 
   // Prevent self-modification
@@ -183,11 +183,17 @@ router.put('/users/:id', authMiddleware, adminOnly, async (req, res) => {
 
     // Update role if provided
     if (role) {
+      if (!reason || !reason.trim()) {
+        return res.status(400).json({ message: 'A reason is required to change a role' })
+      }
       const [roleRow] = await db.query('SELECT roleID FROM roles WHERE roleName = ?', [role])
       if (roleRow.length === 0) {
         return res.status(400).json({ message: 'Invalid role' })
       }
-      await db.query('UPDATE users SET roleID = ? WHERE userID = ?', [roleRow[0].roleID, id])
+      await db.query(
+        'UPDATE users SET roleID = ?, roleChangeReason = ? WHERE userID = ?',
+        [roleRow[0].roleID, reason.trim(), id]
+      )
     }
 
     // Update status if provided

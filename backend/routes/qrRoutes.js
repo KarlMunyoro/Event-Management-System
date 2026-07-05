@@ -18,58 +18,8 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// GET /api/qr/verify?token=XXX — public endpoint for organizer scanning
-router.get('/verify', async (req, res) => {
-  const { token } = req.query
-  if (!token) return res.status(400).json({ message: 'Token is required' })
-
-  try {
-    const [rows] = await db.query(`
-      SELECT
-        q.token,
-        a.attendanceID,
-        a.hasCheckedIn,
-        u.fullName,
-        e.title AS eventTitle,
-        e.eventDate,
-        v.venueName AS location
-      FROM qr_codes q
-      JOIN attendance a ON q.attendanceID = a.attendanceID
-      JOIN users u ON a.userID = u.userID
-      JOIN events e ON a.eventID = e.eventID
-      JOIN venues v ON e.venueID = v.venueID
-      WHERE q.token = ?
-    `, [token])
-
-    if (rows.length === 0) {
-      return res.status(404).json({ message: 'Invalid QR code' })
-    }
-
-    const record = rows[0]
-    const alreadyCheckedIn = record.hasCheckedIn
-
-    if (!alreadyCheckedIn) {
-      await db.query('UPDATE attendance SET hasCheckedIn = 1, checkedInAt = NOW() WHERE attendanceID = ?', [record.attendanceID])
-      await db.query('UPDATE qr_codes SET scannedAt = NOW() WHERE token = ?', [token])
-    }
-
-    res.json({
-      valid: true,
-      alreadyCheckedIn,
-      fullName: record.fullName,
-      eventTitle: record.eventTitle,
-      eventDate: record.eventDate,
-      location: record.location,
-    })
-  } catch (err) {
-    console.error('QR verify error:', err)
-    res.status(500).json({ message: 'Server error' })
-  }
-})
-
-// REPLACE your existing GET /api/qr/verify route in qrRoutes.js with this.
-// Now accepts EITHER ?token=XXX (camera scan) OR ?code=123456 (manual fallback entry).
-
+// GET /api/qr/verify?token=XXX (camera scan) OR ?code=123456 (manual fallback entry)
+// Public endpoint for organizer scanning / self check-in links.
 router.get('/verify', async (req, res) => {
   const { token, code } = req.query
   if (!token && !code) {

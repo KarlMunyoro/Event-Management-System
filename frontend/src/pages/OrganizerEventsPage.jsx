@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Calendar, Clock, MapPin, Plus, Pencil, Eye, Users } from 'lucide-react'
+import { Calendar, Clock, MapPin, Plus, Pencil, Eye, Users, Ban } from 'lucide-react'
 import api from '../services/api'
 import Navbar from '../components/Navbar'
 
@@ -29,12 +29,28 @@ export default function OrganizerEventsPage() {
     navigate('/login')
   }
 
+  async function handleCancel(eventID) {
+    const reason = window.prompt('Why are you cancelling this event? This reason will be shown to attendees.')
+    if (reason === null) return
+    if (!reason.trim()) {
+      setError('A reason is required to cancel an event')
+      return
+    }
+    try {
+      await api.put(`/events/${eventID}/cancel`, { reason: reason.trim() })
+      setEvents(prev => prev.map(e => e.eventID === eventID ? { ...e, status: 'Cancelled', removedReason: reason.trim() } : e))
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to cancel event')
+    }
+  }
+
   function statusBadge(status) {
     const map = {
       Active: { bg: '#EAF7EE', color: '#1A5E2E', border: '#BFE4C8' },
       Pending: { bg: '#FEF6E7', color: '#8A5A00', border: '#F5D89A' },
       Rejected: { bg: '#FCEBEB', color: '#791F1F', border: '#F7C1C1' },
       Archived: { bg: '#EEF1F5', color: '#5A6A7A', border: '#DDE6F0' },
+      Cancelled: { bg: '#FCEBEB', color: '#791F1F', border: '#F7C1C1' },
     }
     const s = map[status] || map.Archived
     return (
@@ -83,13 +99,6 @@ export default function OrganizerEventsPage() {
           >
             <Plus size={15} /> Create event
           </button>
-          <button
-  onClick={() => navigate(`/organizer/events/${event.eventID}/attendance`)}
-  style={iconBtnStyle}
-  title="Attendance & feedback"
->
-  <Users size={14} />
-</button>
         </div>
       </div>
 
@@ -180,6 +189,22 @@ export default function OrganizerEventsPage() {
                         >
                           <Pencil size={14} />
                         </button>
+                        <button
+                          onClick={() => navigate(`/organizer/events/${event.eventID}/attendance`)}
+                          style={iconBtnStyle}
+                          title="Attendance & feedback"
+                        >
+                          <Users size={14} />
+                        </button>
+                        {event.status !== 'Cancelled' && (
+                          <button
+                            onClick={() => handleCancel(event.eventID)}
+                            style={{ ...iconBtnStyle, color: '#791F1F', borderColor: '#F7C1C1' }}
+                            title="Cancel event"
+                          >
+                            <Ban size={14} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

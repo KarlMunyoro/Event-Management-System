@@ -149,7 +149,7 @@ export default function QRCodePage() {
             </div>
 
             {/* Check-in status */}
-            {data.hasCheckedIn && (
+            {Boolean(data.hasCheckedIn) && (
               <div style={{
                 background: '#E6F1FB',
                 border: '1px solid #B5D4F4',

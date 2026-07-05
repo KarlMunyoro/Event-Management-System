@@ -26,6 +26,15 @@ export default function ProfilePage() {
       .finally(() => setLoading(false))
   }, [])
 
+  async function dismissRoleChangeNotice() {
+    setProfile(prev => ({ ...prev, roleChangeReason: null }))
+    try {
+      await api.put('/auth/acknowledge-role-change')
+    } catch {
+      // Non-critical — the banner will just reappear next load if this fails.
+    }
+  }
+
   async function handlePasswordSubmit(e) {
     e.preventDefault()
     setPwMsg({ type: '', text: '' })
@@ -76,6 +85,27 @@ export default function ProfilePage() {
       </div>
 
       <div style={{ maxWidth: '560px', margin: '0 auto', padding: '0 16px 40px', marginTop: '-20px' }}>
+
+        {/* Role change notice */}
+        {profile?.roleChangeReason && (
+          <div style={{ ...cardStyle, marginBottom: '20px', borderLeftColor: '#F5A623', background: '#FFF8E1' }}>
+            <h2 style={{ ...sectionTitle, color: '#7A5C00' }}>
+              <Shield size={15} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Your role was changed
+            </h2>
+            <p style={{ fontSize: '13px', color: '#5A6A7A', marginBottom: '16px' }}>
+              An admin changed your role to <strong>{profile.role}</strong>. Reason: {profile.roleChangeReason}
+            </p>
+            <button
+              onClick={dismissRoleChangeNotice}
+              style={{
+                background: 'none', border: '1.5px solid #F5A623', color: '#7A5C00',
+                borderRadius: '8px', padding: '8px 16px', fontSize: '13px', fontWeight: '600', cursor: 'pointer',
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {/* Profile card */}
         <div style={cardStyle}>

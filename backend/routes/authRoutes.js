@@ -1,6 +1,6 @@
 import express from 'express'
 import jwt from 'jsonwebtoken'
-import { register, login, verifyEmail, resendVerification, me, changePassword } from '../controllers/authController.js'
+import { register, login, verifyEmail, resendVerification, me, changePassword, acknowledgeRoleChange } from '../controllers/authController.js'
 
 const router = express.Router()
 
@@ -22,5 +22,6 @@ function authMiddleware(req, res, next) {
 
 router.get('/me', authMiddleware, me)
 router.put('/password', authMiddleware, changePassword)
+router.put('/acknowledge-role-change', authMiddleware, acknowledgeRoleChange)
 
 export default router

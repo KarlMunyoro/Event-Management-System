@@ -17,6 +17,7 @@ CREATE TABLE venues (
 CREATE TABLE users (
   userID INT AUTO_INCREMENT PRIMARY KEY,
   roleID INT NOT NULL,
+  roleChangeReason TEXT,
   fullName VARCHAR(120) NOT NULL,
   email VARCHAR(255) NOT NULL UNIQUE,
   passwordHash VARCHAR(255) NOT NULL,
@@ -46,7 +47,7 @@ CREATE TABLE events (
   eventDate DATE NOT NULL,
   startTime TIME,
   endTime TIME,
-  status ENUM('Draft', 'Active', 'Removed', 'Archived') NOT NULL DEFAULT 'Active',
+  status ENUM('Draft', 'Active', 'Removed', 'Archived', 'Cancelled') NOT NULL DEFAULT 'Active',
   removedReason TEXT,
   createdAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
