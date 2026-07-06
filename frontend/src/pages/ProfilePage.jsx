@@ -18,13 +18,21 @@ export default function ProfilePage() {
   const [reqForm, setReqForm] = useState({ clubName: '', reason: '' })
   const [reqMsg, setReqMsg] = useState({ type: '', text: '' })
   const [reqSubmitting, setReqSubmitting] = useState(false)
+  const [myRequest, setMyRequest] = useState(null)
 
   useEffect(() => {
     api.get('/auth/me')
       .then(res => setProfile(res.data))
       .catch(() => {})
       .finally(() => setLoading(false))
+    fetchMyRequest()
   }, [])
+
+  function fetchMyRequest() {
+    api.get('/organizer-requests/mine')
+      .then(res => setMyRequest(res.data))
+      .catch(() => {})
+  }
 
   async function dismissRoleChangeNotice() {
     setProfile(prev => ({ ...prev, roleChangeReason: null }))
@@ -65,6 +73,7 @@ export default function ProfilePage() {
       await api.post('/organizer-requests', reqForm)
       setReqMsg({ type: 'success', text: 'Request submitted. An admin will review it.' })
       setReqForm({ clubName: '', reason: '' })
+      fetchMyRequest()
     } catch (err) {
       setReqMsg({ type: 'error', text: err.response?.data?.message || 'Failed to submit request' })
     } finally {
@@ -145,21 +154,35 @@ export default function ProfilePage() {
         {profile?.role === 'Student' && (
           <div style={{ ...cardStyle, marginTop: '20px' }}>
             <h2 style={sectionTitle}><Send size={15} style={{ marginRight: '6px', verticalAlign: 'middle' }} />Request organizer access</h2>
-            <p style={{ fontSize: '12px', color: '#5A6A7A', marginBottom: '16px' }}>
-              Want to create and manage events? Submit a request for an admin to review.
-            </p>
 
-            {reqMsg.text && <Banner type={reqMsg.type} text={reqMsg.text} />}
+            {myRequest && (
+              <div style={{ marginBottom: '16px' }}>
+                <p style={{ fontSize: '12px', color: '#5A6A7A', marginBottom: '8px' }}>
+                  Your request for <strong>{myRequest.clubName}</strong> (submitted {new Date(myRequest.requestedAt).toLocaleDateString()}):
+                </p>
+                <StatusBadge status={myRequest.status} />
+              </div>
+            )}
 
-            <form onSubmit={handleRequestSubmit}>
-              <label style={labelStyle}>Club / department name</label>
-              <input type="text" value={reqForm.clubName} onChange={e => setReqForm({ ...reqForm, clubName: e.target.value })} placeholder="e.g. Computer Science Club" required style={inputStyle} />
-              <label style={labelStyle}>Reason</label>
-              <textarea value={reqForm.reason} onChange={e => setReqForm({ ...reqForm, reason: e.target.value })} placeholder="Tell us why you need organizer access..." rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'sans-serif', marginBottom: '18px' }} />
-              <button type="submit" disabled={reqSubmitting} style={primaryBtn(reqSubmitting)}>
-                {reqSubmitting ? 'Submitting...' : 'Submit request'}
-              </button>
-            </form>
+            {(!myRequest || myRequest.status === 'Rejected') && (
+              <>
+                <p style={{ fontSize: '12px', color: '#5A6A7A', marginBottom: '16px' }}>
+                  {myRequest ? 'You can submit a new request below.' : 'Want to create and manage events? Submit a request for an admin to review.'}
+                </p>
+
+                {reqMsg.text && <Banner type={reqMsg.type} text={reqMsg.text} />}
+
+                <form onSubmit={handleRequestSubmit}>
+                  <label style={labelStyle}>Club / department name</label>
+                  <input type="text" value={reqForm.clubName} onChange={e => setReqForm({ ...reqForm, clubName: e.target.value })} placeholder="e.g. Computer Science Club" required style={inputStyle} />
+                  <label style={labelStyle}>Reason</label>
+                  <textarea value={reqForm.reason} onChange={e => setReqForm({ ...reqForm, reason: e.target.value })} placeholder="Tell us why you need organizer access..." rows={3} style={{ ...inputStyle, resize: 'vertical', fontFamily: 'sans-serif', marginBottom: '18px' }} />
+                  <button type="submit" disabled={reqSubmitting} style={primaryBtn(reqSubmitting)}>
+                    {reqSubmitting ? 'Submitting...' : 'Submit request'}
+                  </button>
+                </form>
+              </>
+            )}
           </div>
         )}
 
@@ -175,6 +198,22 @@ function Row({ icon, label, value, last }) {
       <span style={{ fontSize: '12px', color: '#5A6A7A', width: '60px' }}>{label}</span>
       <span style={{ fontSize: '13px', color: '#1A1A2E', fontWeight: '500' }}>{value}</span>
     </div>
+  )
+}
+
+function StatusBadge({ status }) {
+  const styles = {
+    Pending: { background: '#FFF8E1', color: '#7A5C00', border: '1px solid #F5D67D' },
+    Approved: { background: '#EAF7EE', color: '#1A5E2E', border: '1px solid #BFE4C8' },
+    Rejected: { background: '#FCEBEB', color: '#791F1F', border: '1px solid #F7C1C1' },
+  }[status] || {}
+  return (
+    <span style={{
+      ...styles, display: 'inline-block', borderRadius: '999px', padding: '4px 12px',
+      fontSize: '12px', fontWeight: '700',
+    }}>
+      {status}
+    </span>
   )
 }
 
