@@ -20,6 +20,25 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// GET /api/organizer-requests/mine — the current user's most recent request
+router.get('/mine', authMiddleware, async (req, res) => {
+  const userID = req.user.userID
+  try {
+    const [rows] = await db.query(
+      `SELECT requestID, clubName, reason, status, requestedAt, reviewedAt
+       FROM organizer_requests
+       WHERE userID = ?
+       ORDER BY requestedAt DESC
+       LIMIT 1`,
+      [userID]
+    )
+    res.json(rows[0] || null)
+  } catch (err) {
+    console.error('Fetch own organizer request error:', err)
+    res.status(500).json({ message: 'Server error' })
+  }
+})
+
 // POST /api/organizer-requests — submit a new organizer access request
 router.post('/', authMiddleware, async (req, res) => {
   const userID = req.user.userID
