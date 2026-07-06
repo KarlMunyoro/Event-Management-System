@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Clock, Users, CalendarCheck, FileClock } from 'lucide-react'
+import { Clock, Users, CalendarCheck } from 'lucide-react'
 import Navbar from '../components/Navbar'
 import api from '../services/api'
 
@@ -48,7 +48,6 @@ export default function AdminDashboardPage() {
               <StatCard icon={<Users size={18} color="#1E3A5F" />} label="Total users" value={stats.totalUsers}
                 onClick={() => navigate('/admin/users')} />
               <StatCard icon={<CalendarCheck size={18} color="#1A5E2E" />} label="Active events" value={stats.activeEvents} />
-              <StatCard icon={<FileClock size={18} color="#2E5480" />} label="Pending events" value={stats.pendingEvents} />
             </div>
 
             <div style={{ background: '#fff', border: '1px solid #DDE6F0', borderLeft: '4px solid #F5A623', borderRadius: '14px', padding: '24px', boxShadow: '0 2px 12px rgba(30,58,95,0.08)' }}>

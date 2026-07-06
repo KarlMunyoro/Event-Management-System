@@ -114,7 +114,7 @@ const userID = getUserIDFromToken(token)
       {/* Navbar */}
       <Navbar />
 
-      {event.status === 'Cancelled' && (
+      {(event.status === 'Cancelled' || event.status === 'Removed') && (
         <div style={{
           background: '#FCEBEB', borderBottom: '1px solid #F7C1C1',
           color: '#791F1F', fontSize: '13px', fontWeight: '600',

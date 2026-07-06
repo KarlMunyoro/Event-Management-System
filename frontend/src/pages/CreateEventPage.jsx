@@ -5,7 +5,7 @@ import api from '../services/api'
 import Navbar from '../components/Navbar'
 
 const EARLIEST_START_TIME = '07:00'
-const LATEST_END_TIME = '21:00'
+const LATEST_END_TIME = '19:30'
 
 export default function CreateEventPage() {
   const navigate = useNavigate()
@@ -48,7 +48,7 @@ export default function CreateEventPage() {
     }
 
     if (form.startTime < EARLIEST_START_TIME || form.endTime > LATEST_END_TIME) {
-      setError('Events must be held between 7:00 AM and 9:00 PM')
+      setError('Events must be held between 7:00 AM and 7:30 PM')
       return
     }
 
@@ -224,7 +224,7 @@ export default function CreateEventPage() {
               </div>
             </div>
             <p style={{ fontSize: '11px', color: '#9AA7B5', marginTop: '-12px', marginBottom: '18px' }}>
-              Events must be held between 7:00 AM and 9:00 PM.
+              Events must be held between 7:00 AM and 7:30 PM.
             </p>
 
             {/* Location */}

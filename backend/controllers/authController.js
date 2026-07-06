@@ -102,21 +102,23 @@ function buildVerifyUrl(userID) {
   return `${apiBaseUrl}/auth/verify/${verifyToken}`
 }
 
-async function sendVerificationEmail({ email, fullName, userID }) {
-  const verifyUrl = buildVerifyUrl(userID)
+function buildEmailFromAddress() {
+  const explicitFrom = (process.env.EMAIL_FROM || '').trim()
+  if (explicitFrom) return explicitFrom
 
+  return 'CampusEvents <onboarding@resend.dev>'
+}
+
+async function sendViaResend({ email, fullName, verifyUrl }) {
   if (!process.env.RESEND_API_KEY) {
-    const err = new Error('Email is not configured. Set RESEND_API_KEY.')
-    err.code = 'EMAIL_CONFIG_MISSING'
+    const err = new Error('RESEND_API_KEY is missing')
+    err.code = 'RESEND_CONFIG_MISSING'
     throw err
   }
- 
+
   const resend = new Resend(process.env.RESEND_API_KEY)
- 
   const sendResult = await resend.emails.send({
-    // Until you verify your own domain in Resend, you MUST use
-    // this exact sender — Resend provides it for testing:
-    from: 'CampusEvents <onboarding@resend.dev>',
+    from: buildEmailFromAddress(),
     to: email,
     subject: 'Verify your CampusEvents account',
     html: `<p>Hi ${fullName},</p>
@@ -126,8 +128,76 @@ async function sendVerificationEmail({ email, fullName, userID }) {
            <p>${verifyUrl}</p>`,
     text: `Hi ${fullName},\n\nVerify your account using this link:\n${verifyUrl}\n\nIf you did not create this account, you can ignore this email.`,
   })
+
+  if (sendResult?.error) {
+    const err = new Error(sendResult.error.message || 'Resend failed to send email')
+    err.code = sendResult.error.name || 'RESEND_SEND_FAILED'
+    throw err
+  }
+
   console.log('📧 Resend response:', JSON.stringify(sendResult))
-  console.log('📧 Sent to:', email)
+}
+
+async function sendViaSmtp({ email, fullName, verifyUrl }) {
+  const smtpUser = (process.env.EMAIL_USER || '').trim()
+  const smtpPass = (process.env.EMAIL_PASSWORD || '').trim()
+
+  if (!smtpUser || !smtpPass) {
+    const err = new Error('SMTP fallback is not configured (EMAIL_USER/EMAIL_PASSWORD)')
+    err.code = 'SMTP_CONFIG_MISSING'
+    throw err
+  }
+
+  const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: smtpUser,
+      pass: smtpPass,
+    },
+  })
+
+  const from = (process.env.EMAIL_FROM || '').trim() || `CampusEvents <${smtpUser}>`
+  const info = await transporter.sendMail({
+    from,
+    to: email,
+    subject: 'Verify your CampusEvents account',
+    html: `<p>Hi ${fullName},</p>
+           <p>Click the link below to verify your account:</p>
+           <p><a href="${verifyUrl}">Verify email</a></p>
+           <p>If the button does not work, copy and paste this URL into your browser:</p>
+           <p>${verifyUrl}</p>`,
+    text: `Hi ${fullName},\n\nVerify your account using this link:\n${verifyUrl}\n\nIf you did not create this account, you can ignore this email.`,
+  })
+
+  console.log('📧 SMTP message sent:', info.messageId)
+}
+
+async function sendVerificationEmail({ email, fullName, userID }) {
+  const verifyUrl = buildVerifyUrl(userID)
+
+  const errors = []
+
+  try {
+    await sendViaResend({ email, fullName, verifyUrl })
+    console.log('📧 Sent to:', email)
+    return
+  } catch (err) {
+    errors.push(`Resend: ${err.message}`)
+    console.warn('⚠️ Resend send failed:', err.message)
+  }
+
+  try {
+    await sendViaSmtp({ email, fullName, verifyUrl })
+    console.log('📧 Sent to:', email)
+    return
+  } catch (err) {
+    errors.push(`SMTP: ${err.message}`)
+    console.warn('⚠️ SMTP send failed:', err.message)
+  }
+
+  const finalError = new Error(`Email delivery failed. ${errors.join(' | ')}`)
+  finalError.code = 'EMAIL_DELIVERY_FAILED'
+  throw finalError
 }
 
 async function resolveRoleID(roleName) {

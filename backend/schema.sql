@@ -37,6 +37,15 @@ CREATE TABLE categories (
 INSERT INTO categories (categoryName) VALUES
 ('Academic'), ('Social'), ('Sports'), ('Career'), ('Culture'), ('Workshop');
 
+INSERT INTO users (roleID, fullName, email, passwordHash, emailVerifiedAt)
+VALUES (
+  2,
+  'Seed Organizer',
+  'organizer@strathmore.edu',
+  '$2b$10$7sQ4i6vD4n3D8WmM5W6Q4e4S1v1mY0n6UjQ3h2m7f6f3A5zV9kQ2O',
+  NOW()
+);
+
 CREATE TABLE events (
   eventID INT AUTO_INCREMENT PRIMARY KEY,
   organizerID INT NOT NULL,
@@ -110,10 +119,10 @@ INSERT INTO venues (venueName) VALUES
 ('Nairobi Hall'),('Computer Lab B2'),('Main Auditorium'),('Innovation Hub'),('LT3'),('Courtyard'),('Sports Ground');
 
 INSERT INTO events (organizerID, categoryID, venueID, title, description, eventDate, startTime, endTime, status) VALUES
-(1, 4, 1, 'Tech Career Fair 2025', 'Annual fair connecting students with top employers in tech, finance and consulting. Bring printed copies of your CV. Smart casual dress required.', '2025-11-14', '10:00:00', '16:00:00', 'Active'),
-(1, 1, 5, 'AI & Society Panel', 'Faculty and industry speakers discuss the ethics and impact of artificial intelligence on society and the job market.', '2025-11-19', '14:00:00', '16:00:00', 'Active'),
-(1, 2, 6, 'End of Semester Social', 'Wind down the semester with music, food stalls and student performances. All students welcome.', '2025-11-22', '18:00:00', '22:00:00', 'Active'),
-(1, 6, 2, 'Python Workshop Series 3', 'Hands-on session covering data structures, list comprehension and file I/O. Bring your laptop.', '2025-11-18', '09:00:00', '11:00:00', 'Active'),
-(1, 3, 7, 'Inter-Faculty Football Tournament', 'Annual football tournament between faculties. Come and cheer your team to victory.', '2025-11-25', '08:00:00', '17:00:00', 'Active'),
-(1, 5, 3, 'Culture Week Opening Ceremony', 'Kick off Culture Week with performances, traditional food and art exhibitions from across Africa.', '2025-11-20', '11:00:00', '14:00:00', 'Active'),
-(1, 1, 4, 'Entrepreneurship Bootcamp', 'Two-day bootcamp for aspiring entrepreneurs. Learn how to validate ideas, pitch to investors and build a business plan.', '2025-11-28', '09:00:00', '17:00:00', 'Active');
+(1, 4, 1, 'Tech Career Fair', 'Annual fair connecting students with top employers in tech, finance and consulting. Bring printed copies of your CV. Smart casual dress required.', DATE_ADD(CURDATE(), INTERVAL 7 DAY), '10:00:00', '16:00:00', 'Active'),
+(1, 1, 5, 'AI & Society Panel', 'Faculty and industry speakers discuss the ethics and impact of artificial intelligence on society and the job market.', DATE_ADD(CURDATE(), INTERVAL 12 DAY), '14:00:00', '16:00:00', 'Active'),
+(1, 2, 6, 'End of Semester Social', 'Wind down the semester with music, food stalls and student performances. All students welcome.', DATE_ADD(CURDATE(), INTERVAL 15 DAY), '18:00:00', '21:00:00', 'Active'),
+(1, 6, 2, 'Python Workshop Series 3', 'Hands-on session covering data structures, list comprehension and file I/O. Bring your laptop.', DATE_ADD(CURDATE(), INTERVAL 10 DAY), '09:00:00', '11:00:00', 'Active'),
+(1, 3, 7, 'Inter-Faculty Football Tournament', 'Annual football tournament between faculties. Come and cheer your team to victory.', DATE_ADD(CURDATE(), INTERVAL 18 DAY), '08:00:00', '17:00:00', 'Active'),
+(1, 5, 3, 'Culture Week Opening Ceremony', 'Kick off Culture Week with performances, traditional food and art exhibitions from across Africa.', DATE_ADD(CURDATE(), INTERVAL 13 DAY), '11:00:00', '14:00:00', 'Active'),
+(1, 1, 4, 'Entrepreneurship Bootcamp', 'Two-day bootcamp for aspiring entrepreneurs. Learn how to validate ideas, pitch to investors and build a business plan.', DATE_ADD(CURDATE(), INTERVAL 21 DAY), '09:00:00', '17:00:00', 'Active');

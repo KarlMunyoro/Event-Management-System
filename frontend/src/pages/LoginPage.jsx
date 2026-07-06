@@ -57,6 +57,18 @@ export default function LoginPage() {
       localStorage.setItem("fullName", fullName)
       localStorage.setItem('userID', res.data.userID)
 
+      // If admin left a role change reason, send the user to Profile first
+      // so they can immediately see the notice.
+      try {
+        const me = await api.get('/auth/me')
+        if (me.data?.roleChangeReason) {
+          navigate('/profile')
+          return
+        }
+      } catch {
+        // Non-blocking; continue with normal post-login routing.
+      }
+
       if (role === "Admin") navigate("/admin/dashboard")
       else if (role === "Organizer") navigate("/organizer/dashboard")
       else navigate("/events")

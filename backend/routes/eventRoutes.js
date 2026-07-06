@@ -5,11 +5,42 @@ import { requireAuth, requireRole } from '../middleware/auth.js'
 const router = express.Router()
 
 const EARLIEST_START_TIME = '07:00'
-const LATEST_END_TIME = '21:00'
+const LATEST_END_TIME = '19:30'
 
-// Events may only run between 7am and 9pm.
+// Events may only run between 7:00 AM and 7:30 PM.
 function isOutsideAllowedHours(startTime, endTime) {
   return startTime < EARLIEST_START_TIME || endTime > LATEST_END_TIME
+}
+
+async function hasColumn(tableName, columnName) {
+  const [rows] = await db.query(
+    `SELECT 1
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = ?
+       AND COLUMN_NAME = ?
+     LIMIT 1`,
+    [tableName, columnName]
+  )
+  return rows.length > 0
+}
+
+async function resolveCancellationStatus() {
+  const [rows] = await db.query(
+    `SELECT COLUMN_TYPE
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'events'
+       AND COLUMN_NAME = 'status'
+     LIMIT 1`
+  )
+
+  const columnType = rows[0]?.COLUMN_TYPE || ''
+  const enumValues = [...columnType.matchAll(/'([^']+)'/g)].map(match => match[1])
+
+  if (enumValues.includes('Cancelled')) return 'Cancelled'
+  if (enumValues.includes('Removed')) return 'Removed'
+  return null
 }
 
 // Marks any Active event whose day has passed as Archived.
@@ -40,7 +71,7 @@ router.post('/', requireAuth, requireRole('Organizer', 'Admin'), async (req, res
   }
 
   if (isOutsideAllowedHours(startTime, endTime)) {
-    return res.status(400).json({ message: 'Events must be held between 7:00 AM and 9:00 PM' })
+    return res.status(400).json({ message: 'Events must be held between 7:00 AM and 7:30 PM' })
   }
 
   try {
@@ -107,7 +138,7 @@ router.get('/archived', requireAuth, async (req, res) => {
         JOIN categories c ON e.categoryID = c.categoryID
         JOIN venues v ON e.venueID = v.venueID
         LEFT JOIN attendance a ON a.eventID = e.eventID
-        WHERE e.status IN ('Archived', 'Cancelled') AND e.organizerID = ?
+        WHERE e.status IN ('Archived', 'Cancelled', 'Removed') AND e.organizerID = ?
         GROUP BY e.eventID
         ORDER BY e.eventDate DESC
       `, [userID])
@@ -128,7 +159,7 @@ router.get('/archived', requireAuth, async (req, res) => {
       JOIN venues v ON e.venueID = v.venueID
       LEFT JOIN attendance a ON a.eventID = e.eventID AND a.userID = ?
       LEFT JOIN feedback f ON f.attendanceID = a.attendanceID
-      WHERE e.status IN ('Archived', 'Cancelled')
+      WHERE e.status IN ('Archived', 'Cancelled', 'Removed')
       ORDER BY e.eventDate DESC
     `, [userID])
 
@@ -159,10 +190,20 @@ router.put('/:id/cancel', requireAuth, requireRole('Organizer', 'Admin'), async 
       return res.status(403).json({ message: 'You do not have permission to cancel this event' })
     }
 
-    await db.query(
-      'UPDATE events SET status = ?, removedReason = ? WHERE eventID = ?',
-      ['Cancelled', reason.trim(), eventID]
-    )
+    const cancellationStatus = await resolveCancellationStatus()
+    if (!cancellationStatus) {
+      return res.status(500).json({ message: 'Event status configuration is invalid' })
+    }
+
+    const supportsRemovedReason = await hasColumn('events', 'removedReason')
+    if (supportsRemovedReason) {
+      await db.query(
+        'UPDATE events SET status = ?, removedReason = ? WHERE eventID = ?',
+        [cancellationStatus, reason.trim(), eventID]
+      )
+    } else {
+      await db.query('UPDATE events SET status = ? WHERE eventID = ?', [cancellationStatus, eventID])
+    }
 
     res.json({ message: 'Event cancelled successfully' })
   } catch (err) {
@@ -203,7 +244,7 @@ router.put('/:id', requireAuth, requireRole('Organizer', 'Admin'), async (req, r
   }
 
   if (isOutsideAllowedHours(startTime, endTime)) {
-    return res.status(400).json({ message: 'Events must be held between 7:00 AM and 9:00 PM' })
+    return res.status(400).json({ message: 'Events must be held between 7:00 AM and 7:30 PM' })
   }
 
   try {
