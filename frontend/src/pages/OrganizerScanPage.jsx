@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Html5QrcodeScanner } from 'html5-qrcode'
-import { CheckCircle, XCircle, AlertCircle, ScanLine, User, Calendar, MapPin, RefreshCw } from 'lucide-react'
+import { CheckCircle, XCircle, AlertCircle, ScanLine, User, Calendar, MapPin, RefreshCw, Keyboard } from 'lucide-react'
 import api from '../services/api'
 
 export default function OrganizerScanPage() {
@@ -11,15 +11,17 @@ export default function OrganizerScanPage() {
   // phase: 'scanning' | 'loading' | 'result'
   const [phase, setPhase] = useState('scanning')
   const [result, setResult] = useState(null)
+  const [showManualEntry, setShowManualEntry] = useState(false)
+  const [manualCode, setManualCode] = useState('')
   const scannerRef = useRef(null)
 
   useEffect(() => {
     if (role !== 'Organizer' && role !== 'Admin') navigate('/events')
   }, [])
 
-  // Initialise scanner whenever phase returns to 'scanning'
+  // Initialise scanner whenever phase returns to 'scanning' (and manual entry isn't open)
   useEffect(() => {
-    if (phase !== 'scanning') return
+    if (phase !== 'scanning' || showManualEntry) return
 
     const scanner = new Html5QrcodeScanner(
       'qr-reader',
@@ -40,7 +42,7 @@ export default function OrganizerScanPage() {
       scanner.clear().catch(() => {})
       scannerRef.current = null
     }
-  }, [phase])
+  }, [phase, showManualEntry])
 
   async function verify(rawValue) {
     setPhase('loading')
@@ -65,8 +67,25 @@ export default function OrganizerScanPage() {
     setPhase('result')
   }
 
+  async function handleManualSubmit(e) {
+    e.preventDefault()
+    const code = manualCode.trim()
+    if (!code) return
+
+    setPhase('loading')
+    try {
+      const res = await api.get(`/qr/verify?code=${encodeURIComponent(code)}`)
+      setResult({ status: res.data.alreadyCheckedIn ? 'duplicate' : 'success', data: res.data })
+    } catch (err) {
+      setResult({ status: 'error', message: err.response?.data?.message || 'Invalid or unrecognised backup code' })
+    }
+    setPhase('result')
+  }
+
   function handleScanNext() {
     setResult(null)
+    setManualCode('')
+    setShowManualEntry(false)
     setPhase('scanning')
   }
 
@@ -136,7 +155,7 @@ export default function OrganizerScanPage() {
       <div style={{ maxWidth: '460px', margin: '-24px auto 0', padding: '0 16px 40px' }}>
 
         {/* Scanner view */}
-        {phase === 'scanning' && (
+        {phase === 'scanning' && !showManualEntry && (
           <div style={{
             background: '#fff',
             borderRadius: '16px',
@@ -150,6 +169,70 @@ export default function OrganizerScanPage() {
             </div>
             {/* html5-qrcode renders its UI into this div */}
             <div id="qr-reader" style={{ width: '100%' }} />
+            <div style={{ padding: '16px', textAlign: 'center', borderTop: '1px solid #F3F4F6' }}>
+              <button
+                onClick={() => setShowManualEntry(true)}
+                style={{
+                  background: 'none', border: 'none', color: '#002147', fontSize: '13px',
+                  fontWeight: '600', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                <Keyboard size={14} /> Trouble scanning? Enter backup code
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Manual backup-code entry */}
+        {phase === 'scanning' && showManualEntry && (
+          <div style={{
+            background: '#fff',
+            borderRadius: '16px',
+            padding: '28px 24px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.10)',
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+              <Keyboard size={28} color="#002147" />
+            </div>
+            <p style={{ fontSize: '13px', color: '#666', textAlign: 'center', marginBottom: '20px' }}>
+              Enter the attendee's 6-digit backup code
+            </p>
+            <form onSubmit={handleManualSubmit}>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                autoFocus
+                value={manualCode}
+                onChange={e => setManualCode(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000"
+                style={{
+                  width: '100%', boxSizing: 'border-box', textAlign: 'center', fontSize: '28px',
+                  fontWeight: '700', letterSpacing: '10px', padding: '14px', border: '1px solid #DDE6F0',
+                  borderRadius: '10px', outline: 'none', marginBottom: '16px', color: '#1A1A2E',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={manualCode.trim().length !== 6}
+                style={{
+                  width: '100%', padding: '13px', background: manualCode.trim().length !== 6 ? '#B0C4DE' : '#002147',
+                  color: '#fff', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: '600',
+                  cursor: manualCode.trim().length !== 6 ? 'not-allowed' : 'pointer', marginBottom: '12px',
+                }}
+              >
+                Verify code
+              </button>
+            </form>
+            <button
+              onClick={() => { setShowManualEntry(false); setManualCode('') }}
+              style={{
+                width: '100%', background: 'none', border: 'none', color: '#666', fontSize: '13px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              }}
+            >
+              <ScanLine size={14} /> Back to camera scanner
+            </button>
           </div>
         )}
 
